@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
+  AppState,
   Image,
   Platform,
   Pressable,
@@ -11,15 +12,22 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { CameraView, Camera } from 'expo-camera';
-import * as Location from 'expo-location';
+import { CameraView } from 'expo-camera';
 
 import { userStore, UserAccount } from '@/lib/user-store';
-import { permissionStore } from '@/lib/permission-store';
+import { usePermissionGate } from '@/hooks/use-permission-gate';
+import { PermissionPrompt, type PromptPhase } from '@/components/PermissionPrompt';
+import {
+  cameraPermission,
+  isLocationServicesEnabled,
+  locationPermission,
+} from '@/lib/permission-adapters';
+import { statusLabel } from '@/lib/attendance-format';
 import { locationStore, OfficeConfig } from '@/lib/location-store';
 import { syncStore } from '@/lib/sync-store';
 import { attendanceApi } from '@/lib/api';
@@ -34,12 +42,29 @@ function formatTime24(date: Date): string {
 
 export default function AttendanceScreen() {
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
   const [currentTime, setCurrentTime] = useState(() => formatTime24(new Date()));
 
-  // Status izin kamera & lokasi
-  const [hasCameraPermission, setHasCameraPermission] = useState<boolean>(false);
-  const [hasLocationPermission, setHasLocationPermission] = useState<boolean>(false);
+  // Izin kamera lalu lokasi (berurutan agar dialog sistem tidak bertumpuk). Fase awal
+  // 'checking' = layar netral; bila izin belum diputuskan, dialog sistem langsung diminta
+  // (App Store 5.1.1(iv): tidak ada layar/tombol Pengaturan sebelum itu).
+  const cameraGate = usePermissionGate({
+    getPermission: cameraPermission.get,
+    requestPermission: cameraPermission.request,
+  });
+  const locationGate = usePermissionGate({
+    getPermission: locationPermission.get,
+    requestPermission: locationPermission.request,
+    enabled: cameraGate.phase === 'granted',
+  });
+  const hasCameraPermission = cameraGate.phase === 'granted';
+  // Layanan Lokasi (GPS) perangkat; hanya relevan setelah izin lokasi diberikan.
+  const [servicesEnabled, setServicesEnabled] = useState<boolean>(true);
+  const locationGranted = locationGate.phase === 'granted';
+  const hasLocationPermission = locationGranted && servicesEnabled;
+  const locationPhase: PromptPhase =
+    locationGranted ? 'servicesOff' : (locationGate.phase as PromptPhase);
 
   // Ref kamera native (Expo Camera) dan Web Video
   const cameraRef = useRef<CameraView>(null);
@@ -114,39 +139,17 @@ export default function AttendanceScreen() {
         setCurrentUser(u);
         if (u.todayCheckIn) {
           Alert.alert(
-            'Sudah Absen Hari Ini',
-            `Kamu sudah melakukan absensi masuk hari ini pada pukul ${u.todayCheckIn.time} WIB.`,
+            t('attendance.alreadyTitle'),
+            t('attendance.alreadyBody', { time: u.todayCheckIn.time }),
             [
-              { text: 'Ke Menu Utama', onPress: () => router.replace('/(app)/home') },
-              { text: 'OK' },
+              { text: t('common.goToMainMenu'), onPress: () => router.replace('/(app)/home') },
+              { text: t('common.ok') },
             ]
           );
         }
-
-      if (Platform.OS !== 'web') {
-        try {
-          const camStatus = await Camera.getCameraPermissionsAsync();
-          const locStatus = await Location.getForegroundPermissionsAsync();
-          setHasCameraPermission(camStatus.granted);
-          setHasLocationPermission(locStatus.granted);
-          if (locStatus.granted) {
-            checkGeofence();
-          }
-        } catch (e) {
-          console.warn('Gagal cek izin native:', e);
-        }
-      } else {
-        const cam = await permissionStore.getCameraPermission();
-        const loc = await permissionStore.getLocationPermission();
-        setHasCameraPermission(cam);
-        setHasLocationPermission(loc);
-        if (loc) {
-          checkGeofence();
-        }
-      }
     }
     init();
-  }, []);
+  }, [t]);
 
   // Jam realtime berdetak setiap detik
   useEffect(() => {
@@ -205,98 +208,36 @@ export default function AttendanceScreen() {
     }
   }, [cameraStream, isFullyPermitted]);
 
-  // Aksi Beri Izin Kamera Asli
-  async function handleGrantCamera() {
-    if (Platform.OS !== 'web') {
-      try {
-        const res = await Camera.requestCameraPermissionsAsync();
-        setHasCameraPermission(res.granted);
-        await permissionStore.setCameraPermission(res.granted);
-        if (!res.granted) {
-          Alert.alert(
-            'Izin Kamera Ditolak',
-            'Harap izinkan akses kamera di Pengaturan iPhone Anda untuk melakukan presensi.'
-          );
-        }
-      } catch (err: any) {
-        Alert.alert('Gagal Meminta Izin Kamera', err?.message || 'Terjadi kesalahan.');
-      }
-      return;
-    }
-
-    if (typeof window !== 'undefined' && !window.isSecureContext) {
-      Alert.alert(
-        'Info Keamanan Browser',
-        'Safari iPhone mewajibkan koneksi HTTPS (misal via Expo Tunnel) untuk membuka kamera fisik asli. Tetap mengizinkan simulasi kamera.'
-      );
-    }
-
-    if (typeof navigator !== 'undefined' && navigator.mediaDevices?.getUserMedia) {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'user' },
-          audio: false,
-        });
-        setCameraStream(stream);
-      } catch (err: any) {
-        console.warn('Izin kamera ditolak atau perangkat tidak tersedia:', err);
-      }
-    }
-
-    await permissionStore.setCameraPermission(true);
-    setHasCameraPermission(true);
-  }
-
-  // Aksi Beri Izin Lokasi Asli
-  async function handleGrantLocation() {
-    if (Platform.OS !== 'web') {
-      try {
-        const res = await Location.requestForegroundPermissionsAsync();
-        setHasLocationPermission(res.granted);
-        await permissionStore.setLocationPermission(res.granted);
-        if (res.granted) {
-          checkGeofence();
-        }
-        if (!res.granted) {
-          Alert.alert(
-            'Izin Lokasi Ditolak',
-            'Harap izinkan akses lokasi di Pengaturan iPhone Anda untuk memverifikasi kehadiran di kantor.'
-          );
-        }
-      } catch (err: any) {
-        Alert.alert('Gagal Meminta Izin Lokasi', err?.message || 'Terjadi kesalahan.');
-      }
-      return;
-    }
-
-    if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        async () => {
-          await permissionStore.setLocationPermission(true);
-          setHasLocationPermission(true);
-        },
-        async () => {
-          await permissionStore.setLocationPermission(true);
-          setHasLocationPermission(true);
-        },
-        { enableHighAccuracy: true, timeout: 5000 }
-      );
-      return;
-    }
-
-    await permissionStore.setLocationPermission(true);
-    setHasLocationPermission(true);
-  }
+  // Setelah izin lokasi diberikan: cek Layanan Lokasi (GPS) perangkat dan, bila menyala,
+  // verifikasi radius kantor. Diulang saat app kembali aktif (mis. GPS baru dinyalakan).
+  useEffect(() => {
+    if (!locationGranted) return;
+    let cancelled = false;
+    const check = async () => {
+      const enabled = await isLocationServicesEnabled();
+      if (cancelled) return;
+      setServicesEnabled(enabled);
+      if (enabled) void checkGeofence();
+    };
+    void check();
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void check();
+    });
+    return () => {
+      cancelled = true;
+      sub.remove();
+    };
+  }, [locationGranted]);
 
   // Aksi Menjepret Foto Presensi (Shutter Button)
   async function handleCapturePhoto() {
     if (currentUser?.todayCheckIn) {
       Alert.alert(
-        'Sudah Absen Hari Ini',
-        `Kamu sudah melakukan absensi masuk hari ini pada pukul ${currentUser.todayCheckIn.time} WIB.`,
+        t('attendance.alreadyTitle'),
+        t('attendance.alreadyBody', { time: currentUser.todayCheckIn.time }),
         [
-          { text: 'Ke Menu Utama', onPress: () => router.replace('/(app)/home') },
-          { text: 'OK' },
+          { text: t('common.goToMainMenu'), onPress: () => router.replace('/(app)/home') },
+          { text: t('common.ok') },
         ]
       );
       return;
@@ -304,17 +245,11 @@ export default function AttendanceScreen() {
 
     // Validasi: jika izin belum lengkap, karyawan tidak bisa absen
     if (!hasCameraPermission) {
-      Alert.alert(
-        'Izin Kamera Diperlukan',
-        'Harap berikan izin kamera terlebih dahulu untuk melakukan presensi.'
-      );
+      Alert.alert(t('attendance.cameraNeededTitle'), t('attendance.cameraNeededBody'));
       return;
     }
     if (!hasLocationPermission) {
-      Alert.alert(
-        'Izin Lokasi Diperlukan',
-        'Harap aktifkan layanan lokasi (GPS) terlebih dahulu untuk melakukan presensi.'
-      );
+      Alert.alert(t('attendance.locationNeededTitle'), t('attendance.locationNeededBody'));
       return;
     }
 
@@ -322,11 +257,15 @@ export default function AttendanceScreen() {
     const locRes = await checkGeofence();
     if (locRes && !locRes.isInside) {
       Alert.alert(
-        'Presensi Ditolak (Di Luar Kantor) 🚫',
-        `Kamu terdeteksi berada di luar area ${locRes.office.name} sejauh ${locRes.distanceMeters} meter.\n\nPresensi hanya dapat dilakukan jika kamu sudah berada di dalam kantor Piposmart (maksimal ${locRes.office.radiusMeters} meter). Karyawan tidak dapat melakukan absensi dari rumah atau luar kantor.`,
+        t('attendance.outsideTitle'),
+        t('attendance.outsideBody', {
+          office: locRes.office.name,
+          distance: locRes.distanceMeters,
+          max: locRes.office.radiusMeters,
+        }),
         [
-          { text: 'Cek Lokasi Lagi', onPress: () => checkGeofence() },
-          { text: 'Tutup', style: 'cancel' },
+          { text: t('attendance.checkLocationAgain'), onPress: () => checkGeofence() },
+          { text: t('common.close'), style: 'cancel' },
         ]
       );
       return;
@@ -401,7 +340,7 @@ export default function AttendanceScreen() {
         }),
       ]).start();
     } catch (err: any) {
-      Alert.alert('Gagal Mengambil Foto', err?.message || 'Terjadi kesalahan saat memproses kamera.');
+      Alert.alert(t('attendance.captureFailedTitle'), err?.message || t('attendance.captureFailedBody'));
     } finally {
       setIsCapturing(false);
     }
@@ -482,31 +421,37 @@ export default function AttendanceScreen() {
 
       if (isDirectSuccess) {
         Alert.alert(
-          'Presensi Berhasil Terkirim! 🎉',
+          t('attendance.successTitle'),
           isAlreadyCheckedIn
-            ? 'Kamu sudah tercatat presensi di server hari ini.'
-            : `Absensi masuk kamu telah tercatat di server pada pukul ${capturedTime} WIB (${capturedIsLate ? 'Terlambat' : 'Tepat Waktu'}). Foto dan lokasi GPS langsung tampil di Web Dashboard.`,
+            ? t('attendance.alreadyOnServer')
+            : t('attendance.successBody', {
+                time: capturedTime,
+                status: statusLabel(capturedIsLate),
+              }),
           [
             {
-              text: 'Ke Menu Utama',
+              text: t('common.goToMainMenu'),
               onPress: () => router.replace('/(app)/home'),
             },
           ]
         );
       } else {
         Alert.alert(
-          'Presensi Dicatat (Mode Antrean / Offline) 📲',
-          `Absensi masuk kamu berhasil dicatat pada pukul ${capturedTime} WIB (${capturedIsLate ? 'Terlambat' : 'Tepat Waktu'}).\n\nData tersimpan aman di HP dan akan otomatis disinkronkan ke server saat jaringan terhubung.`,
+          t('attendance.queuedTitle'),
+          t('attendance.queuedBody', {
+            time: capturedTime,
+            status: statusLabel(capturedIsLate),
+          }),
           [
             {
-              text: 'Ke Menu Utama',
+              text: t('common.goToMainMenu'),
               onPress: () => router.replace('/(app)/home'),
             },
           ]
         );
       }
     } catch (err: any) {
-      Alert.alert('Gagal Mengirim Presensi', err?.message || 'Terjadi kesalahan saat menyimpan presensi.');
+      Alert.alert(t('attendance.submitFailedTitle'), err?.message || t('attendance.submitFailedBody'));
     } finally {
       setIsSubmitting(false);
     }
@@ -514,7 +459,6 @@ export default function AttendanceScreen() {
 
   // Evaluasi mode layar saat ini berdasarkan izin
   const isCameraPermissionMissing = !hasCameraPermission;
-  const isLocationPermissionMissing = hasCameraPermission && !hasLocationPermission;
 
   return (
     <View style={styles.screen}>
@@ -525,7 +469,7 @@ export default function AttendanceScreen() {
         <View style={styles.headerLeftWithBack}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Kembali ke Beranda"
+            accessibilityLabel={t('common.backToHome')}
             onPress={() => router.replace('/(app)/home')}
             style={({ pressed }) => [styles.headerBackBtn, pressed && styles.headerBackBtnPressed]}
             hitSlop={12}
@@ -533,8 +477,8 @@ export default function AttendanceScreen() {
             <Feather name="chevron-left" size={26} color="#0F1F24" />
           </Pressable>
           <View>
-            <Text style={styles.userName}>{currentUser?.fullName ?? 'Karyawan'}</Text>
-            <Text style={styles.userRole}>{currentUser?.role ?? 'Karyawan'}</Text>
+            <Text style={styles.userName}>{currentUser?.fullName ?? t('common.employee')}</Text>
+            <Text style={styles.userRole}>{currentUser?.role ?? t('common.employee')}</Text>
           </View>
         </View>
         <View style={styles.clockPill}>
@@ -583,7 +527,7 @@ export default function AttendanceScreen() {
                 <Feather name="clock" size={24} color="#FFFFFF" />
               </View>
               <View style={styles.previewCardInfo}>
-                <Text style={styles.previewCardHeaderTitle}>WAKTU ABSEN TERCATAT</Text>
+                <Text style={styles.previewCardHeaderTitle}>{t('attendance.recordedTime')}</Text>
                 <View style={styles.previewTimeValueRow}>
                   <Text style={styles.previewTimeValueText}>{capturedTime}</Text>
                   <Text style={styles.previewTimeWibText}>WIB</Text>
@@ -593,7 +537,7 @@ export default function AttendanceScreen() {
 
             {/* Card Status Kehadiran */}
             <View style={styles.previewStatusCard}>
-              <Text style={styles.previewCardHeaderTitle}>STATUS KEHADIRAN</Text>
+              <Text style={styles.previewCardHeaderTitle}>{t('attendance.attendanceStatus')}</Text>
               <View
                 style={[
                   styles.statusBadgePill,
@@ -606,7 +550,7 @@ export default function AttendanceScreen() {
                     capturedIsLate ? styles.statusBadgeTextLate : styles.statusBadgeTextOnTime,
                   ]}
                 >
-                  {capturedIsLate ? 'Terlambat' : 'Tepat Waktu'}
+                  {statusLabel(capturedIsLate)}
                 </Text>
               </View>
             </View>
@@ -616,7 +560,7 @@ export default function AttendanceScreen() {
           <View style={[styles.previewActionFooter, { paddingBottom: Math.max(insets.bottom, 16) }]}>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Foto Ulang"
+              accessibilityLabel={t('attendance.retake')}
               onPress={handleRetakePhoto}
               disabled={isSubmitting}
               style={({ pressed }) => [
@@ -625,12 +569,12 @@ export default function AttendanceScreen() {
               ]}
             >
               <Feather name="rotate-ccw" size={17} color="#1E293B" style={{ marginRight: 8 }} />
-              <Text style={styles.retakeBtnText}>Foto Ulang</Text>
+              <Text style={styles.retakeBtnText}>{t('attendance.retake')}</Text>
             </Pressable>
 
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Kirim Presensi"
+              accessibilityLabel={t('attendance.submit')}
               onPress={handleConfirmAttendance}
               disabled={isSubmitting}
               style={({ pressed }) => [
@@ -644,7 +588,7 @@ export default function AttendanceScreen() {
               ) : (
                 <>
                   <Feather name="check-circle" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
-                  <Text style={styles.confirmBtnText}>Kirim Presensi</Text>
+                  <Text style={styles.confirmBtnText}>{t('attendance.submit')}</Text>
                 </>
               )}
             </Pressable>
@@ -653,170 +597,27 @@ export default function AttendanceScreen() {
       ) : (
         <>
           {/* ============================================================== */}
-          {/* KONDISI 1: KAMERA BELUM DIIZINKAN                             */}
+          {/* KONDISI 1-2: IZIN KAMERA / LOKASI BELUM LENGKAP               */}
+          {/* Status 'checking'/'requesting' = netral tanpa tombol Pengaturan */}
           {/* ============================================================== */}
-          {isCameraPermissionMissing && (
-        <ScrollView
-          style={styles.permissionScroll}
-          contentContainerStyle={styles.permissionContent}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Ilustrasi Lingkaran Kamera Non-Aktif & Gembok Merah */}
-          <View style={styles.illustrationCircle}>
-            <MaterialCommunityIcons name="camera-off-outline" size={54} color="#64748B" />
-            <View style={styles.padlockBadge}>
-              <Feather name="lock" size={14} color="#DC2626" />
-            </View>
-          </View>
-
-          {/* Judul & Penjelasan */}
-          <Text style={styles.permissionTitle}>Kamera belum diizinkan</Text>
-          <Text style={styles.permissionSubtitle}>
-            SapaKerja butuh kamera untuk foto absen. Buka Pengaturan untuk mengizinkan.
-          </Text>
-
-          {/* Card Panduan Singkat (3 Langkah) */}
-          <View style={styles.guideCard}>
-            <View style={styles.guideCardHeader}>
-              <View style={styles.questionIconBadge}>
-                <Feather name="help-circle" size={16} color="#0E7C86" />
-              </View>
-              <Text style={styles.guideCardTitle}>Panduan Singkat</Text>
-            </View>
-
-            {/* Langkah 1 */}
-            <View style={styles.stepRow}>
-              <View style={styles.stepNumberBadge}>
-                <Text style={styles.stepNumberText}>1</Text>
-              </View>
-              <Text style={styles.stepText}>Buka Pengaturan aplikasi</Text>
-            </View>
-
-            {/* Langkah 2 */}
-            <View style={styles.stepRow}>
-              <View style={styles.stepNumberBadge}>
-                <Text style={styles.stepNumberText}>2</Text>
-              </View>
-              <Text style={styles.stepText}>Pilih menu Izin / Permissions</Text>
-            </View>
-
-            {/* Langkah 3 */}
-            <View style={styles.stepRow}>
-              <View style={styles.stepNumberBadge}>
-                <Text style={styles.stepNumberText}>3</Text>
-              </View>
-              <Text style={styles.stepText}>Aktifkan akses Kamera</Text>
-            </View>
-          </View>
-
-          {/* Tombol Aksi: Buka Pengaturan & Kembali ke Beranda */}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Buka Pengaturan Kamera"
-            onPress={handleGrantCamera}
-            style={({ pressed }) => [styles.primaryActionBtn, pressed && styles.primaryActionBtnPressed]}
-          >
-            <Text style={styles.primaryActionBtnText}>Buka Pengaturan</Text>
-            <Feather name="external-link" size={16} color="#FFFFFF" style={{ marginLeft: 8 }} />
-          </Pressable>
-
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Kembali ke Beranda"
-            onPress={() => router.replace('/(app)/home')}
-            style={styles.backLinkBtn}
-            hitSlop={8}
-          >
-            <Text style={styles.backLinkText}>Kembali ke Beranda</Text>
-          </Pressable>
-        </ScrollView>
-      )}
-
-      {/* ============================================================== */}
-      {/* KONDISI 2: LOKASI BELUM AKTIF                                 */}
-      {/* ============================================================== */}
-      {isLocationPermissionMissing && (
-        <ScrollView
-          style={styles.permissionScroll}
-          contentContainerStyle={styles.permissionContent}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Ilustrasi Lingkaran Lokasi Non-Aktif */}
-          <View style={styles.illustrationCircle}>
-            <MaterialCommunityIcons name="map-marker-off-outline" size={54} color="#64748B" />
-          </View>
-
-          {/* Judul & Penjelasan */}
-          <Text style={styles.permissionTitle}>Lokasi belum aktif</Text>
-          <Text style={styles.permissionSubtitle}>
-            SapaKerja butuh akses lokasi untuk memastikan kamu berada di area kantor saat presensi. Buka Pengaturan untuk mengizinkan.
-          </Text>
-
-          {/* Card Panduan Cepat (3 Langkah dengan Keterangan Rinci) */}
-          <View style={styles.guideCard}>
-            <View style={styles.guideCardHeaderWithBadge}>
-              <Text style={styles.guideCardTitle}>Panduan Cepat</Text>
-              <View style={styles.langkahPill}>
-                <Text style={styles.langkahPillText}>3 LANGKAH</Text>
-              </View>
-            </View>
-
-            {/* Langkah 1 */}
-            <View style={styles.stepRowDetailed}>
-              <View style={styles.stepNumberBadgeGray}>
-                <Text style={styles.stepNumberTextGray}>1</Text>
-              </View>
-              <View style={styles.stepDetailInfo}>
-                <Text style={styles.stepDetailTitle}>Buka Pengaturan perangkat</Text>
-                <Text style={styles.stepDetailSubtitle}>Masuk ke menu setelan privasi atau aplikasi</Text>
-              </View>
-            </View>
-
-            {/* Langkah 2 */}
-            <View style={styles.stepRowDetailed}>
-              <View style={styles.stepNumberBadgeGray}>
-                <Text style={styles.stepNumberTextGray}>2</Text>
-              </View>
-              <View style={styles.stepDetailInfo}>
-                <Text style={styles.stepDetailTitle}>Aktifkan Layanan Lokasi (GPS)</Text>
-                <Text style={styles.stepDetailSubtitle}>Pastikan mode akurasi tinggi menyala</Text>
-              </View>
-            </View>
-
-            {/* Langkah 3 */}
-            <View style={styles.stepRowDetailed}>
-              <View style={styles.stepNumberBadgeGray}>
-                <Text style={styles.stepNumberTextGray}>3</Text>
-              </View>
-              <View style={styles.stepDetailInfo}>
-                <Text style={styles.stepDetailTitle}>Beri izin lokasi 'Saat Aplikasi Digunakan'</Text>
-                <Text style={styles.stepDetailSubtitle}>Pilih opsi ini agar presensi tervalidasi otomatis</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Tombol Aksi: Buka Pengaturan & Kembali ke Beranda */}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Buka Pengaturan Lokasi"
-            onPress={handleGrantLocation}
-            style={({ pressed }) => [styles.primaryActionBtn, pressed && styles.primaryActionBtnPressed]}
-          >
-            <Feather name="settings" size={17} color="#FFFFFF" style={{ marginRight: 8 }} />
-            <Text style={styles.primaryActionBtnText}>Buka Pengaturan</Text>
-          </Pressable>
-
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Kembali ke Beranda"
-            onPress={() => router.replace('/(app)/home')}
-            style={styles.backLinkBtn}
-            hitSlop={8}
-          >
-            <Text style={styles.backLinkText}>Kembali ke Beranda</Text>
-          </Pressable>
-        </ScrollView>
-      )}
+          {!isFullyPermitted &&
+            (isCameraPermissionMissing ? (
+              <PermissionPrompt
+                kind="camera"
+                phase={cameraGate.phase as PromptPhase}
+                onContinue={cameraGate.ask}
+                onOpenSettings={cameraGate.openSettings}
+                onBack={() => router.replace('/(app)/home')}
+              />
+            ) : (
+              <PermissionPrompt
+                kind="location"
+                phase={locationPhase}
+                onContinue={locationGate.ask}
+                onOpenSettings={locationGate.openSettings}
+                onBack={() => router.replace('/(app)/home')}
+              />
+            ))}
 
       {/* ============================================================== */}
       {/* KONDISI 3: KAMERA & LOKASI AKTIF (Viewfinder Live / Asli)     */}
@@ -862,7 +663,7 @@ export default function AttendanceScreen() {
           {/* Teks Instruksi di Bagian Atas Sesuai Figma */}
           <View style={styles.instructionBox} pointerEvents="none">
             <Text style={styles.instructionText}>
-              Pastikan pencahayaan cukup dan wajah terlihat jelas
+              {t('attendance.lightingHint')}
             </Text>
 
             {/* Indikator Status Lokasi Kantor (Pencegah Curang) */}
@@ -885,8 +686,11 @@ export default function AttendanceScreen() {
                 ]}
               >
                 {isInsideOffice
-                  ? `Di Dalam Kantor Piposmart (${officeDistance}m)`
-                  : `Di Luar Kantor (${officeDistance}m / Maks ${officeConfig?.radiusMeters ?? 100}m)`}
+                  ? t('attendance.insideOffice', { distance: officeDistance })
+                  : t('attendance.outsideOffice', {
+                      distance: officeDistance,
+                      max: officeConfig?.radiusMeters ?? 100,
+                    })}
               </Text>
             </View>
 
@@ -894,7 +698,7 @@ export default function AttendanceScreen() {
             {!isOnline && (
               <View style={styles.offlineNetworkPill}>
                 <Feather name="wifi-off" size={11} color="#D97706" style={{ marginRight: 5 }} />
-                <Text style={styles.offlineNetworkPillText}>Mode Offline (Tersimpan di HP)</Text>
+                <Text style={styles.offlineNetworkPillText}>{t('attendance.offlineMode')}</Text>
               </View>
             )}
           </View>
@@ -917,19 +721,19 @@ export default function AttendanceScreen() {
         {/* Tab Riwayat */}
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Riwayat"
+          accessibilityLabel={t('common.tabs.history')}
           style={styles.tabButton}
           onPress={() => router.push('/(app)/history')}
         >
           <Feather name="rotate-ccw" size={22} color="#64748B" />
-          <Text style={[styles.tabLabel, { color: '#64748B' }]}>Riwayat</Text>
+          <Text style={[styles.tabLabel, { color: '#64748B' }]}>{t('common.tabs.history')}</Text>
         </Pressable>
 
         {/* Tab Tengah: Floating Tombol Kamera / Shutter Presensi */}
         <View style={styles.centerFabContainer}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Tombol Presensi"
+            accessibilityLabel={t('attendance.shutterLabel')}
             onPress={handleCapturePhoto}
             disabled={isCapturing}
             style={({ pressed }) => [
@@ -945,19 +749,19 @@ export default function AttendanceScreen() {
             )}
           </Pressable>
           <Text style={[styles.fabLabel, { color: '#05564E', fontWeight: '700' }]}>
-            {isCapturing ? 'Menjepret…' : 'Presensi'}
+            {isCapturing ? t('attendance.capturing') : t('common.tabs.attendance')}
           </Text>
         </View>
 
         {/* Tab Profil */}
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Profil"
+          accessibilityLabel={t('common.tabs.profile')}
           style={styles.tabButton}
           onPress={() => router.push('/(app)/profile')}
         >
           <Feather name="user" size={22} color="#64748B" />
-          <Text style={[styles.tabLabel, { color: '#64748B' }]}>Profil</Text>
+          <Text style={[styles.tabLabel, { color: '#64748B' }]}>{t('common.tabs.profile')}</Text>
         </Pressable>
       </View>
         </>
@@ -1096,197 +900,6 @@ const styles = StyleSheet.create({
     height: 1.5,
     backgroundColor: '#5EEAD4',
     opacity: 0.85,
-  },
-  permissionScroll: {
-    flex: 1,
-  },
-  permissionContent: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 110,
-    alignItems: 'center',
-  },
-  illustrationCircle: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: '#F1F5F9',
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-    marginTop: 10,
-    marginBottom: 16,
-  },
-  padlockBadge: {
-    position: 'absolute',
-    bottom: 2,
-    right: 2,
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: '#FEE2E2',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 2,
-  },
-  permissionTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#0F1F24',
-    textAlign: 'center',
-    marginBottom: 8,
-    letterSpacing: -0.3,
-  },
-  permissionSubtitle: {
-    fontSize: 13,
-    color: '#64748B',
-    textAlign: 'center',
-    lineHeight: 19,
-    paddingHorizontal: 12,
-    marginBottom: 20,
-  },
-  guideCard: {
-    width: '100%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#EDF2F4',
-    padding: 18,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 8,
-    elevation: 2,
-    marginBottom: 20,
-  },
-  guideCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  questionIconBadge: {
-    width: 24,
-    height: 24,
-    borderRadius: 6,
-    backgroundColor: '#EDF7F6',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 8,
-  },
-  guideCardTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#0F1F24',
-  },
-  guideCardHeaderWithBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  langkahPill: {
-    backgroundColor: '#CCFBF1',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-  },
-  langkahPillText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#0D9488',
-    letterSpacing: 0.5,
-  },
-  stepRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  stepNumberBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#CCFBF1',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  stepNumberText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#047857',
-  },
-  stepText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#334155',
-  },
-  stepRowDetailed: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 14,
-  },
-  stepNumberBadgeGray: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#F1F5F9',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-    marginTop: 2,
-  },
-  stepNumberTextGray: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#475569',
-  },
-  stepDetailInfo: {
-    flex: 1,
-  },
-  stepDetailTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#1E293B',
-    marginBottom: 2,
-  },
-  stepDetailSubtitle: {
-    fontSize: 11,
-    color: '#64748B',
-    lineHeight: 16,
-  },
-  primaryActionBtn: {
-    backgroundColor: '#05564E',
-    borderRadius: 14,
-    height: 50,
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#05564E',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 3,
-    marginBottom: 14,
-  },
-  primaryActionBtnPressed: {
-    backgroundColor: '#033F39',
-    transform: [{ scale: 0.99 }],
-  },
-  primaryActionBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  backLinkBtn: {
-    paddingVertical: 8,
-  },
-  backLinkText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#05564E',
   },
   bottomNav: {
     position: 'absolute',

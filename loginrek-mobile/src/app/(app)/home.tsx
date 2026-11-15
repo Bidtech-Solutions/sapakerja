@@ -10,6 +10,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -21,6 +22,14 @@ import { tokenStorage } from '@/lib/token-storage';
 import { userStore, UserAccount, AttendanceRecord } from '@/lib/user-store';
 import { syncStore } from '@/lib/sync-store';
 import { getMediaUrl } from '@/config/env';
+import {
+  formatFullDate,
+  formatMonthYear,
+  recordDayLabel,
+  recordFromServer,
+  recordTimeLabel,
+  statusLabel,
+} from '@/lib/attendance-format';
 
 export type AttendanceStatus =
   | 'holiday'    // Hari Libur
@@ -30,7 +39,8 @@ export type AttendanceStatus =
   | 'late';      // Terlambat
 
 interface StatusConfig {
-  title: string;
+  /** Kunci i18n untuk judul status. */
+  titleKey: string;
   gradient: [string, string, ...string[]];
   bagIconColor: string;
   bagBgColor: string;
@@ -42,7 +52,7 @@ interface StatusConfig {
 
 const STATUS_CONFIGS: Record<AttendanceStatus, StatusConfig> = {
   holiday: {
-    title: 'Hari Libur',
+    titleKey: 'home.status.holiday',
     gradient: ['#7A1D28', '#64151E', '#4D1016'],
     bagIconColor: '#991B1B',
     bagBgColor: '#FEE2E2',
@@ -52,7 +62,7 @@ const STATUS_CONFIGS: Record<AttendanceStatus, StatusConfig> = {
     checkInBg: '#F3F4F6',
   },
   closed: {
-    title: 'Kantor Tutup',
+    titleKey: 'home.status.closed',
     gradient: ['#7A1D28', '#64151E', '#4D1016'],
     bagIconColor: '#991B1B',
     bagBgColor: '#FEE2E2',
@@ -62,7 +72,7 @@ const STATUS_CONFIGS: Record<AttendanceStatus, StatusConfig> = {
     checkInBg: '#F3F4F6',
   },
   not_yet: {
-    title: 'belum Absen',
+    titleKey: 'home.status.notYet',
     gradient: ['#E69500', '#D97706', '#B45309'],
     bagIconColor: '#D97706',
     bagBgColor: '#FEF3C7',
@@ -72,7 +82,7 @@ const STATUS_CONFIGS: Record<AttendanceStatus, StatusConfig> = {
     checkInBg: '#F3F4F6',
   },
   on_time: {
-    title: 'Tepat Waktu',
+    titleKey: 'common.status.onTime',
     gradient: ['#0E7C86', '#09636C', '#05484E'],
     bagIconColor: '#0E7C86',
     bagBgColor: '#E6F4EA',
@@ -82,7 +92,7 @@ const STATUS_CONFIGS: Record<AttendanceStatus, StatusConfig> = {
     checkInBg: '#FEF3C7',
   },
   late: {
-    title: 'Terlambat',
+    titleKey: 'common.status.late',
     gradient: ['#2F6FEB', '#2563EB', '#1D4ED8'],
     bagIconColor: '#2563EB',
     bagBgColor: '#DBEAFE',
@@ -92,33 +102,6 @@ const STATUS_CONFIGS: Record<AttendanceStatus, StatusConfig> = {
     checkInBg: '#FEF3C7',
   },
 };
-
-const RECENT_PRESENSI: { id: string; day: string; time: string; status: 'Tepat Waktu' | 'Terlambat' }[] = [];
-
-const INDO_DAYS = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-const INDO_MONTHS = [
-  'Januari',
-  'Februari',
-  'Maret',
-  'April',
-  'Mei',
-  'Juni',
-  'Juli',
-  'Agustus',
-  'September',
-  'Oktober',
-  'November',
-  'Desember',
-];
-
-// Format hari, tanggal, bulan, dan tahun (misal: "Selasa, 27 Oktober 2026")
-function formatFullDateIndonesian(date: Date): string {
-  const dayName = INDO_DAYS[date.getDay()];
-  const dayNum = date.getDate();
-  const monthName = INDO_MONTHS[date.getMonth()];
-  const year = date.getFullYear();
-  return `${dayName}, ${dayNum} ${monthName} ${year}`;
-}
 
 // Format jam dalam format 24 jam (misal 13:00 untuk jam 1 siang, 16:00 untuk jam 4 sore)
 function formatTime24(date: Date): string {
@@ -130,6 +113,7 @@ function formatTime24(date: Date): string {
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
   const [currentDate, setCurrentDate] = useState(() => new Date());
   const [currentTime, setCurrentTime] = useState(() => formatTime24(new Date()));
@@ -166,26 +150,18 @@ export default function HomeScreen() {
             // Sinkronkan ke riwayat presensi lokal agar langsung muncul di HP ini
             const currentHistory = u.history || [];
             const alreadyInHistory = currentHistory.some(
-              (h) => h.time.includes(att.clockInTime) || (h.id && h.id === String(att.id))
+              (h) =>
+                h.clockIn === att.clockInTime ||
+                h.time.includes(att.clockInTime) ||
+                (h.id && h.id === String(att.id))
             );
 
             let updatedHistory = currentHistory;
             if (!alreadyInHistory) {
-              const now = new Date();
-              const dateNames = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
-              const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
-              const dayName = dateNames[now.getDay()];
-              const dateNum = now.getDate();
-              const monthName = monthNames[now.getMonth()];
-              const year = now.getFullYear();
-
-              const newRecord: AttendanceRecord = {
-                id: String(att.id || Date.now()),
-                day: `Hari ini, ${dayName} ${dateNum} ${monthName} ${year}`,
-                time: `Jam Masuk: ${att.clockInTime} WIB`,
-                status: att.isLate ? 'Terlambat' : 'Tepat Waktu',
-                photoUri: att.photoPath ? getMediaUrl(att.photoPath) ?? undefined : undefined,
-              };
+              const newRecord: AttendanceRecord = recordFromServer(
+                { ...att, date: att.date || res.data.today },
+                att.photoPath ? getMediaUrl(att.photoPath) ?? undefined : undefined,
+              );
               updatedHistory = [newRecord, ...currentHistory.slice(0, 4)];
             }
 
@@ -228,36 +204,12 @@ export default function HomeScreen() {
     try {
       const histRes = await attendanceApi.myHistory({ limit: 10 });
       if (histRes?.data && histRes.data.length > 0 && u) {
-        const serverRecords: AttendanceRecord[] = histRes.data.map((item) => {
-          const parts = item.date.split('-');
-          const y = parseInt(parts[0], 10);
-          const m = parseInt(parts[1], 10) - 1;
-          const d = parseInt(parts[2], 10);
-          const dt = new Date(y, m, d);
-
-          const dateNames = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
-          const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
-          const dayName = dateNames[dt.getDay()];
-          const monthName = monthNames[m] || '';
-
-          const now = new Date();
-          const isToday = now.getFullYear() === y && now.getMonth() === m && now.getDate() === d;
-          const day = isToday
-            ? `Hari ini, ${dayName} ${d} ${monthName} ${y}`
-            : `${dayName}, ${d} ${monthName} ${y}`;
-
-          const time = item.clockInTime.startsWith('Jam Masuk:')
-            ? item.clockInTime
-            : `Jam Masuk: ${item.clockInTime} WIB`;
-
-          return {
-            id: String(item.id),
-            day,
-            time,
-            status: (item.isLate ? 'Terlambat' : 'Tepat Waktu') as 'Tepat Waktu' | 'Terlambat',
-            photoUri: item.photoPath ? (getMediaUrl(item.photoPath) ?? undefined) : undefined,
-          };
-        });
+        const serverRecords: AttendanceRecord[] = histRes.data.map((item) =>
+          recordFromServer(
+            item,
+            item.photoPath ? (getMediaUrl(item.photoPath) ?? undefined) : undefined,
+          ),
+        );
 
         const onTimeCount = histRes.data.filter((a) => !a.isLate).length;
         const lateCount = histRes.data.filter((a) => a.isLate).length;
@@ -354,9 +306,9 @@ export default function HomeScreen() {
   function handlePresensiPress() {
     if (todayCheckIn) {
       Alert.alert(
-        'Sudah Absen Hari Ini',
-        `Kamu sudah melakukan absensi masuk hari ini pada pukul ${todayCheckIn.time} WIB.`,
-        [{ text: 'OK' }]
+        t('attendance.alreadyTitle'),
+        t('attendance.alreadyBody', { time: todayCheckIn.time }),
+        [{ text: t('common.ok') }]
       );
       return;
     }
@@ -384,8 +336,8 @@ export default function HomeScreen() {
         {/* Top Header: Profil Singkat & Jam Realtime */}
         <View style={styles.topHeader}>
           <View>
-            <Text style={styles.userName}>{currentUser?.fullName ?? 'Karyawan'}</Text>
-            <Text style={styles.userRole}>{currentUser?.role ?? 'Karyawan'}</Text>
+            <Text style={styles.userName}>{currentUser?.fullName ?? t('common.employee')}</Text>
+            <Text style={styles.userRole}>{currentUser?.role ?? t('common.employee')}</Text>
           </View>
           <View style={styles.clockPill}>
             <Feather name="clock" size={13} color="#047857" style={styles.clockIcon} />
@@ -407,10 +359,10 @@ export default function HomeScreen() {
 
             <View style={styles.keteranganPill}>
               <Text style={styles.keteranganText}>
-                {formatFullDateIndonesian(currentDate)}
+                {formatFullDate(currentDate)}
               </Text>
             </View>
-            <Text style={styles.statusTitle}>{config.title}</Text>
+            <Text style={styles.statusTitle}>{t(config.titleKey)}</Text>
           </LinearGradient>
 
           {/* Floating Card Jam Kerja & Jam Masuk */}
@@ -420,12 +372,12 @@ export default function HomeScreen() {
             </View>
 
             <View style={styles.officeHoursColumn}>
-              <Text style={styles.cardLabel}>Jam Kerja Kantor</Text>
+              <Text style={styles.cardLabel}>{t('home.officeHours')}</Text>
               <Text style={styles.cardValue}>{config.officeHours}</Text>
             </View>
 
             <View style={styles.checkInColumn}>
-              <Text style={styles.cardLabel}>Waktu Masuk</Text>
+              <Text style={styles.cardLabel}>{t('home.checkInTime')}</Text>
               <View style={[styles.checkInBadge, { backgroundColor: config.checkInBg }]}>
                 <Text style={[styles.checkInText, { color: config.checkInColor }]}>
                   {checkInDisplayTime}
@@ -438,8 +390,8 @@ export default function HomeScreen() {
         {/* Section Rekap Bulan Ini */}
         <View style={styles.rekapSection}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitleCaps}>REKAP BULAN INI</Text>
-            <Text style={styles.rekapPeriod}>Oktober 2026</Text>
+            <Text style={styles.sectionTitleCaps}>{t('home.recapTitle')}</Text>
+            <Text style={styles.rekapPeriod}>{formatMonthYear(currentDate)}</Text>
           </View>
 
           <View style={styles.rekapRow}>
@@ -453,9 +405,9 @@ export default function HomeScreen() {
                   <Feather name="check" size={16} color="#059669" />
                 </View>
               </View>
-              <Text style={styles.rekapLabel}>Tepat Waktu</Text>
+              <Text style={styles.rekapLabel}>{t('common.status.onTime')}</Text>
               <Text style={styles.rekapSubtitle}>
-                {currentUser?.onTimeCount ? 'Target 95% tercapai' : 'Belum ada catatan'}
+                {currentUser?.onTimeCount ? t('home.targetMet') : t('home.noRecords')}
               </Text>
             </View>
 
@@ -469,9 +421,9 @@ export default function HomeScreen() {
                   <Feather name="alert-triangle" size={15} color="#DC2626" />
                 </View>
               </View>
-              <Text style={[styles.rekapLabel, { color: '#B91C1C' }]}>Terlambat</Text>
+              <Text style={[styles.rekapLabel, { color: '#B91C1C' }]}>{t('common.status.late')}</Text>
               <Text style={styles.rekapSubtitle}>
-                {currentUser?.lateCount ? 'Total durasi tercatat' : 'Kedisiplinan 100%'}
+                {currentUser?.lateCount ? t('home.totalDuration') : t('home.punctuality')}
               </Text>
             </View>
           </View>
@@ -481,11 +433,11 @@ export default function HomeScreen() {
         <View style={styles.historySection}>
           <View style={styles.sectionHeader}>
             <View>
-              <Text style={styles.historySectionTitle}>Presensi 5 Hari Terakhir</Text>
-              <Text style={styles.historySectionSub}>Catatan jam masuk hari kerja sebelumnya</Text>
+              <Text style={styles.historySectionTitle}>{t('home.recentTitle')}</Text>
+              <Text style={styles.historySectionSub}>{t('home.recentSubtitle')}</Text>
             </View>
             <Pressable hitSlop={10} onPress={() => router.push('/(app)/history')}>
-              <Text style={styles.seeAllText}>Semua</Text>
+              <Text style={styles.seeAllText}>{t('home.seeAll')}</Text>
             </Pressable>
           </View>
 
@@ -500,8 +452,8 @@ export default function HomeScreen() {
                       <Feather name="calendar" size={18} color="#0E7C86" />
                     </View>
                     <View style={styles.historyInfo}>
-                      <Text style={styles.historyDate}>{item.day}</Text>
-                      <Text style={styles.historyTime}>{item.time}</Text>
+                      <Text style={styles.historyDate}>{recordDayLabel(item)}</Text>
+                      <Text style={styles.historyTime}>{recordTimeLabel(item)}</Text>
                     </View>
                     <View
                       style={[
@@ -515,7 +467,7 @@ export default function HomeScreen() {
                           isOnTime ? styles.statusTextOnTime : styles.statusTextLate,
                         ]}
                       >
-                        {item.status}
+                        {statusLabel(!isOnTime)}
                       </Text>
                     </View>
                   </View>
@@ -524,9 +476,9 @@ export default function HomeScreen() {
             ) : (
               <View style={styles.emptyHistoryCard}>
                 <Feather name="calendar" size={24} color="#94A3B8" style={{ marginBottom: 6 }} />
-                <Text style={styles.emptyHistoryTitle}>Belum Ada Riwayat Presensi</Text>
+                <Text style={styles.emptyHistoryTitle}>{t('home.emptyTitle')}</Text>
                 <Text style={styles.emptyHistorySubtitle}>
-                  Lakukan absensi masuk hari ini untuk mulai mencatat kehadiran kamu.
+                  {t('home.emptySubtitle')}
                 </Text>
               </View>
             )}
@@ -542,7 +494,7 @@ export default function HomeScreen() {
           onPress={() => router.push('/(app)/history')}
         >
           <Feather name="rotate-ccw" size={22} color="#64748B" />
-          <Text style={[styles.tabLabel, { color: '#64748B' }]}>Riwayat</Text>
+          <Text style={[styles.tabLabel, { color: '#64748B' }]}>{t('common.tabs.history')}</Text>
         </Pressable>
 
         {/* Tab Tengah: Floating Tombol Kamera Presensi */}
@@ -554,7 +506,7 @@ export default function HomeScreen() {
           >
             <Feather name="camera" size={26} color="#FFFFFF" />
           </Pressable>
-          <Text style={styles.fabLabel}>Presensi</Text>
+          <Text style={styles.fabLabel}>{t('common.tabs.attendance')}</Text>
         </View>
 
         {/* Tab Profil */}
@@ -563,7 +515,7 @@ export default function HomeScreen() {
           onPress={() => router.push('/(app)/profile')}
         >
           <Feather name="user" size={22} color="#05564E" />
-          <Text style={styles.tabLabel}>Profil</Text>
+          <Text style={styles.tabLabel}>{t('common.tabs.profile')}</Text>
         </Pressable>
       </View>
     </View>

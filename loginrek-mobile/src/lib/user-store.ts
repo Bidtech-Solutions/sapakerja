@@ -1,11 +1,25 @@
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 
+import {
+  formatClockInLine,
+  formatDayLabel,
+  normalizeClockIn,
+  toLocalISODate,
+} from '@/lib/attendance-format';
+
 export interface AttendanceRecord {
   id: string;
+  /** Teks tanggal siap tampil (cache lama). Tampilan memakai `date` bila ada, lihat attendance-format. */
   day: string;
+  /** Teks jam siap tampil (cache lama). Tampilan memakai `clockIn` bila ada. */
   time: string;
+  /** Nilai internal netral bahasa; label tampilan lewat statusLabel(). */
   status: 'Tepat Waktu' | 'Terlambat';
+  /** Tanggal presensi "YYYY-MM-DD" (waktu lokal). */
+  date?: string;
+  /** Jam masuk "HH.mm". */
+  clockIn?: string;
   photoUri?: string;
 }
 
@@ -67,17 +81,13 @@ export const userStore = {
 
     const status: 'Tepat Waktu' | 'Terlambat' = isLate ? 'Terlambat' : 'Tepat Waktu';
     const now = new Date();
-    const dateNames = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
-    const dayName = dateNames[now.getDay()];
-    const dateNum = now.getDate();
-    const monthName = monthNames[now.getMonth()];
-    const year = now.getFullYear();
 
     const newRecord: AttendanceRecord = {
       id: String(Date.now()),
-      day: `Hari ini, ${dayName} ${dateNum} ${monthName} ${year}`,
-      time: `Jam Masuk: ${timeFormatted} WIB`,
+      day: formatDayLabel(now, true),
+      time: formatClockInLine(timeFormatted),
+      date: toLocalISODate(now),
+      clockIn: normalizeClockIn(timeFormatted),
       status,
       photoUri: photoUri && photoUri !== 'fallback' ? photoUri : undefined,
     };

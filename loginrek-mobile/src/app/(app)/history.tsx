@@ -9,6 +9,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Feather } from '@expo/vector-icons';
@@ -17,6 +18,16 @@ import { router, useFocusEffect } from 'expo-router';
 import { userStore, UserAccount, AttendanceRecord } from '@/lib/user-store';
 import { attendanceApi, AttendanceResponse } from '@/lib/api';
 import { getMediaUrl } from '@/config/env';
+import {
+  isSameDay,
+  monthName,
+  parseISODate,
+  recordDayLabel,
+  recordFromServer,
+  recordTimeLabel,
+  statusLabel,
+  weekdayShortNames,
+} from '@/lib/attendance-format';
 
 // Format jam digital realtime 24 jam
 function formatTime24(date: Date): string {
@@ -26,33 +37,23 @@ function formatTime24(date: Date): string {
   return `${h}:${m}:${s} WIB`;
 }
 
-// Helper nama hari standar Indonesia
-export const DAYS_OF_WEEK = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
-
-export function getIndonesianDayName(dayOfWeek: number): string {
-  const names = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-  return names[dayOfWeek] || '';
-}
-
-// Ekstrak angka tanggal dari teks riwayat (contoh: "Rab, 14 Okt 2026" atau "Hari ini, Rab 28 Okt 2026")
-export function extractDayNumber(dayStr: string): number | null {
-  const match = dayStr.match(/\b(\d{1,2})\b/);
-  return match ? parseInt(match[1], 10) : null;
-}
-
 export interface ActivityItem {
   id: string;
+  /** Teks tanggal siap tampil (sesuai bahasa aktif). */
   day: string;
+  /** Teks jam masuk siap tampil. */
   time: string;
+  /** Label status siap tampil. */
   status: string;
   type: 'late' | 'on_time' | 'absent' | 'rejected';
+  /** Nomor tanggal (1..31) untuk kalender & filter; null bila tidak diketahui. */
+  dayNum: number | null;
+  isToday: boolean;
   photoUri?: string;
 }
 
 export interface MonthConfig {
   id: string;
-  name: string;
-  shortName: string;
   hasData: boolean;
   hadir: number;
   terlambat: number;
@@ -61,64 +62,57 @@ export interface MonthConfig {
   activities: ActivityItem[];
 }
 
-// Koleksi data lengkap 12 bulan (Januari s/d Desember 2026) - Bersih tanpa data dummy untuk persiapan demo
-const MONTHS_DATA: MonthConfig[] = [
-  { id: '2026-01', name: 'Januari 2026', shortName: 'Januari', hasData: false, hadir: 0, terlambat: 0, tidakHadir: 0, activities: [] },
-  { id: '2026-02', name: 'Februari 2026', shortName: 'Februari', hasData: false, hadir: 0, terlambat: 0, tidakHadir: 0, activities: [] },
-  { id: '2026-03', name: 'Maret 2026', shortName: 'Maret', hasData: false, hadir: 0, terlambat: 0, tidakHadir: 0, activities: [] },
-  { id: '2026-04', name: 'April 2026', shortName: 'April', hasData: false, hadir: 0, terlambat: 0, tidakHadir: 0, activities: [] },
-  { id: '2026-05', name: 'Mei 2026', shortName: 'Mei', hasData: false, hadir: 0, terlambat: 0, tidakHadir: 0, activities: [] },
-  { id: '2026-06', name: 'Juni 2026', shortName: 'Juni', hasData: false, hadir: 0, terlambat: 0, tidakHadir: 0, activities: [] },
-  { id: '2026-07', name: 'Juli 2026', shortName: 'Juli', hasData: false, hadir: 0, terlambat: 0, tidakHadir: 0, activities: [] },
-  { id: '2026-08', name: 'Agustus 2026', shortName: 'Agustus', hasData: false, hadir: 0, terlambat: 0, tidakHadir: 0, activities: [] },
-  { id: '2026-09', name: 'September 2026', shortName: 'September', hasData: false, hadir: 0, terlambat: 0, tidakHadir: 0, activities: [] },
-  { id: '2026-10', name: 'Oktober 2026', shortName: 'Oktober', hasData: false, hadir: 0, terlambat: 0, tidakHadir: 0, isCurrent: true, activities: [] },
-  { id: '2026-11', name: 'November 2026', shortName: 'November', hasData: false, hadir: 0, terlambat: 0, tidakHadir: 0, activities: [] },
-  { id: '2026-12', name: 'Desember 2026', shortName: 'Desember', hasData: false, hadir: 0, terlambat: 0, tidakHadir: 0, activities: [] },
-];
+const YEAR = 2026;
+
+// 12 bulan (Januari s/d Desember 2026) - bersih tanpa data dummy; nama bulan dari i18n.
+const MONTHS_DATA: MonthConfig[] = Array.from({ length: 12 }, (_, i) => ({
+  id: `${YEAR}-${String(i + 1).padStart(2, '0')}`,
+  hasData: false,
+  hadir: 0,
+  terlambat: 0,
+  tidakHadir: 0,
+  isCurrent: i === 9 ? true : undefined,
+  activities: [],
+}));
 
 const currentYearMonth = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
 const INITIAL_INDEX = Math.max(0, Math.min(11, new Date().getMonth()));
 
 // Helper memformat presensi dari backend API ke format tampilan riwayat
 function formatApiAttendance(att: AttendanceResponse): { item: ActivityItem; monthId: string; dayNum: number } {
+  const photoUri = att.photoPath ? (getMediaUrl(att.photoPath) ?? undefined) : undefined;
+  const rec = recordFromServer(att, photoUri);
+  const dt = parseISODate(att.date);
   const parts = att.date.split('-');
-  const y = parseInt(parts[0], 10);
-  const m = parseInt(parts[1], 10) - 1;
-  const d = parseInt(parts[2], 10);
-  const dt = new Date(y, m, d);
-
-  const dateNames = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
-  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
-  const dayName = dateNames[dt.getDay()];
-  const monthName = monthNames[m] || '';
-
-  const now = new Date();
-  const isToday = now.getFullYear() === y && now.getMonth() === m && now.getDate() === d;
-  const day = isToday
-    ? `Hari ini, ${dayName} ${d} ${monthName} ${y}`
-    : `${dayName}, ${d} ${monthName} ${y}`;
-
-  const timeFormatted = att.clockInTime.startsWith('Jam Masuk:')
-    ? att.clockInTime
-    : `Jam Masuk: ${att.clockInTime} WIB`;
+  const dayNum = dt ? dt.getDate() : parseInt(parts[2], 10);
 
   return {
     item: {
       id: `server-${att.id}`,
-      day,
-      time: timeFormatted,
-      status: att.status || (att.isLate ? 'Terlambat' : 'Tepat Waktu'),
+      day: rec.day,
+      time: rec.time,
+      status: statusLabel(att.isLate),
       type: att.isLate ? 'late' : 'on_time',
-      photoUri: att.photoPath ? (getMediaUrl(att.photoPath) ?? undefined) : undefined,
+      dayNum,
+      isToday: dt ? isSameDay(dt, new Date()) : false,
+      photoUri,
     },
     monthId: `${parts[0]}-${parts[1]}`,
-    dayNum: d,
+    dayNum,
   };
+}
+
+// Nomor tanggal rekaman cache; cache lama hanya punya teks ("Rab, 14 Okt 2026").
+function recordDayNumber(rec: AttendanceRecord): number | null {
+  const d = parseISODate(rec.date);
+  if (d) return d.getDate();
+  const match = rec.day.match(/\b(\d{1,2})\b/);
+  return match ? parseInt(match[1], 10) : null;
 }
 
 export default function HistoryScreen() {
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
   const [currentTime, setCurrentTime] = useState(() => formatTime24(new Date()));
   const [selectedMonthIdx, setSelectedMonthIdx] = useState(INITIAL_INDEX);
@@ -142,16 +136,14 @@ export default function HistoryScreen() {
         setServerHistory(historyRes.data);
 
         if (historyRes.data.length > 0) {
-          const recentRecords: AttendanceRecord[] = historyRes.data.slice(0, 5).map((att) => {
-            const formatted = formatApiAttendance(att);
-            return {
-              id: String(att.id),
-              day: formatted.item.day,
-              time: formatted.item.time,
-              status: (att.isLate ? 'Terlambat' : 'Tepat Waktu') as 'Tepat Waktu' | 'Terlambat',
-              photoUri: formatted.item.photoUri,
-            };
-          });
+          const recentRecords: AttendanceRecord[] = historyRes.data
+            .slice(0, 5)
+            .map((att) =>
+              recordFromServer(
+                att,
+                att.photoPath ? (getMediaUrl(att.photoPath) ?? undefined) : undefined,
+              ),
+            );
 
           const onTimeCount = historyRes.data.filter((a) => !a.isLate).length;
           const lateCount = historyRes.data.filter((a) => a.isLate).length;
@@ -174,19 +166,18 @@ export default function HistoryScreen() {
         const att = res.data.attendance;
         const currentHistory = u.history || [];
         const alreadyInHistory = currentHistory.some(
-          (h) => h.time.includes(att.clockInTime) || (h.id && h.id === String(att.id))
+          (h) =>
+            h.clockIn === att.clockInTime ||
+            h.time.includes(att.clockInTime) ||
+            (h.id && h.id === String(att.id))
         );
 
         let updatedHistory = currentHistory;
         if (!alreadyInHistory) {
-          const formatted = formatApiAttendance(att);
-          const newRecord: AttendanceRecord = {
-            id: String(att.id || Date.now()),
-            day: formatted.item.day,
-            time: formatted.item.time,
-            status: att.isLate ? 'Terlambat' : 'Tepat Waktu',
-            photoUri: att.photoPath ? (getMediaUrl(att.photoPath) ?? undefined) : undefined,
-          };
+          const newRecord: AttendanceRecord = recordFromServer(
+            { ...att, date: att.date || res.data.today },
+            att.photoPath ? (getMediaUrl(att.photoPath) ?? undefined) : undefined,
+          );
           updatedHistory = [newRecord, ...currentHistory.slice(0, 4)];
         }
 
@@ -235,6 +226,9 @@ export default function HistoryScreen() {
 
   const currentMonth = MONTHS_DATA[selectedMonthIdx];
   const isCurrentMonth = currentMonth.id === currentYearMonth;
+  const monthTitle = `${monthName(selectedMonthIdx)} ${YEAR}`;
+  const selectedDateLabel =
+    selectedDateFilter !== null ? `${selectedDateFilter} ${monthTitle}` : '';
 
   // Filter aktivitas presensi untuk bulan yang sedang dipilih
   const currentMonthServerActivities = useMemo(() => {
@@ -294,18 +288,23 @@ export default function HistoryScreen() {
       ? currentMonthServerActivities
       : isCurrentMonth && currentUser?.history && currentUser.history.length > 0
         ? [
-            ...currentUser.history.map((h) => ({
-              id: `user-${h.id}`,
-              day: h.day,
-              time: h.time.startsWith('Jam Masuk:') ? h.time : `Jam Masuk: ${h.time}`,
-              status: h.status,
-              type: (h.status === 'Tepat Waktu' ? 'on_time' : 'late') as 'on_time' | 'late',
-              photoUri:
-                h.photoUri ||
-                (h.day.includes('Hari ini') ? currentUser.todayCheckIn?.photoUri : undefined),
-            })),
+            ...currentUser.history.map((h) => {
+              const isLateRec = h.status === 'Terlambat';
+              const dateObj = parseISODate(h.date);
+              const isToday = dateObj ? isSameDay(dateObj, new Date()) : h.day.includes('Hari ini');
+              return {
+                id: `user-${h.id}`,
+                day: recordDayLabel(h),
+                time: recordTimeLabel(h),
+                status: statusLabel(isLateRec),
+                type: (isLateRec ? 'late' : 'on_time') as 'on_time' | 'late',
+                dayNum: recordDayNumber(h),
+                isToday,
+                photoUri: h.photoUri || (isToday ? currentUser.todayCheckIn?.photoUri : undefined),
+              };
+            }),
             ...currentMonth.activities.filter(
-              (act) => !currentUser.history.some((h) => h.day === act.day)
+              (act) => !currentUser.history.some((h) => recordDayLabel(h) === act.day)
             ),
           ]
         : currentMonth.activities;
@@ -314,9 +313,8 @@ export default function HistoryScreen() {
   const attendanceMap = useMemo(() => {
     const map: Record<number, ActivityItem> = {};
     for (const act of activitiesToDisplay) {
-      const d = extractDayNumber(act.day);
-      if (d !== null) {
-        map[d] = act;
+      if (act.dayNum !== null) {
+        map[act.dayNum] = act;
       }
     }
     return map;
@@ -349,7 +347,7 @@ export default function HistoryScreen() {
   // Filter aktivitas berdasarkan tanggal jika ada tanggal yang dipilih
   const filteredActivities = useMemo(() => {
     if (selectedDateFilter === null) return activitiesToDisplay;
-    return activitiesToDisplay.filter((act) => extractDayNumber(act.day) === selectedDateFilter);
+    return activitiesToDisplay.filter((act) => act.dayNum === selectedDateFilter);
   }, [activitiesToDisplay, selectedDateFilter]);
 
   // Render badge pill dengan warna yang sesuai tipe status
@@ -357,13 +355,13 @@ export default function HistoryScreen() {
     let pillStyle = styles.pillOnTime;
     let textStyle = styles.pillTextOnTime;
 
-    if (type === 'late' || status.toLowerCase().includes('terlambat')) {
+    if (type === 'late') {
       pillStyle = styles.pillLate;
       textStyle = styles.pillTextLate;
-    } else if (type === 'absent' || status.toLowerCase().includes('tidak absen')) {
+    } else if (type === 'absent') {
       pillStyle = styles.pillAbsent;
       textStyle = styles.pillTextAbsent;
-    } else if (type === 'rejected' || status.toLowerCase().includes('ditolak')) {
+    } else if (type === 'rejected') {
       pillStyle = styles.pillRejected;
       textStyle = styles.pillTextRejected;
     }
@@ -381,22 +379,16 @@ export default function HistoryScreen() {
   if (selectedDetailItem) {
     const timeMatch = selectedDetailItem.time.match(/(\d{1,2}[.:]\d{2})/);
     const displayTime = timeMatch ? timeMatch[1].replace(':', '.') : '08.00';
-    const isLate =
-      selectedDetailItem.type === 'late' ||
-      selectedDetailItem.status.toLowerCase().includes('terlambat');
+    const isLate = selectedDetailItem.type === 'late';
     const isAbsent =
-      selectedDetailItem.type === 'absent' ||
-      selectedDetailItem.status.toLowerCase().includes('tidak absen') ||
-      selectedDetailItem.status.toLowerCase().includes('ditolak');
+      selectedDetailItem.type === 'absent' || selectedDetailItem.type === 'rejected';
 
     const targetPhotoUri =
       (selectedDetailItem.photoUri && selectedDetailItem.photoUri !== 'fallback'
         ? selectedDetailItem.photoUri
         : undefined) ||
-      (selectedDetailItem.day.includes('Hari ini') ||
-       selectedDetailItem.day.includes(String(todayDate)) ||
-       selectedDetailItem.id.startsWith('user-') ||
-       selectedDetailItem.id.startsWith('okt-28')
+      (selectedDetailItem.isToday ||
+       selectedDetailItem.id.startsWith('user-')
         ? currentUser?.todayCheckIn?.photoUri && currentUser.todayCheckIn.photoUri !== 'fallback'
           ? currentUser.todayCheckIn.photoUri
           : undefined
@@ -415,8 +407,8 @@ export default function HistoryScreen() {
         {/* Top Header Bersih: Nama, Role, & Jam Digital */}
         <View style={[styles.detailTopHeader, { paddingTop: insets.top + 10 }]}>
           <View>
-            <Text style={styles.userName}>{currentUser?.fullName ?? 'Karyawan'}</Text>
-            <Text style={styles.userRole}>{currentUser?.role ?? 'Karyawan'}</Text>
+            <Text style={styles.userName}>{currentUser?.fullName ?? t('common.employee')}</Text>
+            <Text style={styles.userRole}>{currentUser?.role ?? t('common.employee')}</Text>
           </View>
           <View style={styles.clockPill}>
             <Feather name="clock" size={13} color="#047857" style={styles.clockIcon} />
@@ -444,7 +436,7 @@ export default function HistoryScreen() {
             {/* Tombol Kembali Menimpa di Kiri Atas Foto */}
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Kembali ke Halaman Riwayat"
+              accessibilityLabel={t('history.backToHistory')}
               onPress={() => setSelectedDetailItem(null)}
               style={({ pressed }) => [
                 styles.photoOverlayBackBtn,
@@ -462,7 +454,7 @@ export default function HistoryScreen() {
               <Feather name="clock" size={24} color="#FFFFFF" />
             </View>
             <View style={styles.previewCardInfo}>
-              <Text style={styles.previewCardHeaderTitle}>WAKTU ABSEN TERCATAT</Text>
+              <Text style={styles.previewCardHeaderTitle}>{t('attendance.recordedTime')}</Text>
               <View style={styles.previewTimeValueRow}>
                 <Text style={styles.previewTimeValueText}>{displayTime}</Text>
                 <Text style={styles.previewTimeWibText}>WIB</Text>
@@ -473,7 +465,7 @@ export default function HistoryScreen() {
 
           {/* Card Status Kehadiran */}
           <View style={styles.previewStatusCard}>
-            <Text style={styles.previewCardHeaderTitle}>STATUS KEHADIRAN</Text>
+            <Text style={styles.previewCardHeaderTitle}>{t('attendance.attendanceStatus')}</Text>
             <View
               style={[
                 styles.statusBadgePill,
@@ -523,8 +515,8 @@ export default function HistoryScreen() {
         {/* Top Header: Profil & Jam Realtime */}
         <View style={styles.topHeader}>
           <View>
-            <Text style={styles.userName}>{currentUser?.fullName ?? 'Karyawan'}</Text>
-            <Text style={styles.userRole}>{currentUser?.role ?? 'Karyawan'}</Text>
+            <Text style={styles.userName}>{currentUser?.fullName ?? t('common.employee')}</Text>
+            <Text style={styles.userRole}>{currentUser?.role ?? t('common.employee')}</Text>
           </View>
           <View style={styles.clockPill}>
             <Feather name="clock" size={13} color="#047857" style={styles.clockIcon} />
@@ -543,7 +535,7 @@ export default function HistoryScreen() {
               pressed && styles.monthNavBtnPressed,
             ]}
             hitSlop={8}
-            accessibilityLabel="Bulan sebelumnya"
+            accessibilityLabel={t('history.previousMonth')}
           >
             <Feather
               name="chevron-left"
@@ -559,10 +551,10 @@ export default function HistoryScreen() {
               pressed && { opacity: 0.7 },
             ]}
             hitSlop={6}
-            accessibilityLabel="Buka Kalender Presensi"
+            accessibilityLabel={t('history.openCalendar')}
           >
             <Feather name="calendar" size={18} color="#0E7C86" style={styles.calendarIcon} />
-            <Text style={styles.monthLabelText}>{currentMonth.name}</Text>
+            <Text style={styles.monthLabelText}>{monthTitle}</Text>
             <Feather name="chevron-down" size={14} color="#64748B" style={{ marginLeft: 6 }} />
           </Pressable>
 
@@ -575,7 +567,7 @@ export default function HistoryScreen() {
               pressed && styles.monthNavBtnPressed,
             ]}
             hitSlop={8}
-            accessibilityLabel="Bulan berikutnya"
+            accessibilityLabel={t('history.nextMonth')}
           >
             <Feather
               name="chevron-right"
@@ -591,19 +583,17 @@ export default function HistoryScreen() {
             <View style={styles.filterActiveLeft}>
               <Feather name="filter" size={13} color="#05564E" style={{ marginRight: 6 }} />
               <Text style={styles.filterActiveText}>
-                Filter tanggal:{' '}
-                <Text style={styles.filterActiveBold}>
-                  {selectedDateFilter} {currentMonth.shortName} 2026
-                </Text>
+                {t('history.dateFilter')}{' '}
+                <Text style={styles.filterActiveBold}>{selectedDateLabel}</Text>
               </Text>
             </View>
             <Pressable
               onPress={() => setSelectedDateFilter(null)}
               style={styles.filterClearBtn}
               hitSlop={8}
-              accessibilityLabel="Hapus filter tanggal"
+              accessibilityLabel={t('history.clearFilter')}
             >
-              <Text style={styles.filterClearText}>Tampilkan Semua</Text>
+              <Text style={styles.filterClearText}>{t('history.showAll')}</Text>
               <Feather name="x" size={12} color="#05564E" style={{ marginLeft: 4 }} />
             </Pressable>
           </View>
@@ -624,7 +614,7 @@ export default function HistoryScreen() {
                     numberOfLines={1}
                     adjustsFontSizeToFit
                   >
-                    Hadir
+                    {t('common.status.present')}
                   </Text>
                 </View>
                 <Text style={[styles.summaryNumber, { color: '#047857' }]}>{hadirCount}</Text>
@@ -641,7 +631,7 @@ export default function HistoryScreen() {
                     numberOfLines={1}
                     adjustsFontSizeToFit
                   >
-                    Terlambat
+                    {t('common.status.late')}
                   </Text>
                 </View>
                 <Text style={[styles.summaryNumber, { color: '#0F1F24' }]}>{terlambatCount}</Text>
@@ -658,7 +648,7 @@ export default function HistoryScreen() {
                     numberOfLines={1}
                     adjustsFontSizeToFit
                   >
-                    Tidak hadir
+                    {t('common.status.absent')}
                   </Text>
                 </View>
                 <Text style={[styles.summaryNumber, { color: '#DC2626' }]}>{tidakHadirCount}</Text>
@@ -668,19 +658,19 @@ export default function HistoryScreen() {
             <>
               {/* Card Hadir (Kosong) */}
               <View style={[styles.summaryCard, styles.summaryCardEmpty]}>
-                <Text style={styles.summaryEmptyLabel}>Hadir</Text>
+                <Text style={styles.summaryEmptyLabel}>{t('common.status.present')}</Text>
                 <Text style={styles.summaryEmptyNumber}>0</Text>
               </View>
 
               {/* Card Terlambat (Kosong) */}
               <View style={[styles.summaryCard, styles.summaryCardEmpty]}>
-                <Text style={styles.summaryEmptyLabel}>Terlambat</Text>
+                <Text style={styles.summaryEmptyLabel}>{t('common.status.late')}</Text>
                 <Text style={styles.summaryEmptyNumber}>0</Text>
               </View>
 
               {/* Card Tidak Hadir (Kosong) */}
               <View style={[styles.summaryCard, styles.summaryCardEmpty]}>
-                <Text style={styles.summaryEmptyLabel}>Tidak Hadir</Text>
+                <Text style={styles.summaryEmptyLabel}>{t('common.status.absent')}</Text>
                 <Text style={styles.summaryEmptyNumber}>0</Text>
               </View>
             </>
@@ -691,10 +681,10 @@ export default function HistoryScreen() {
         {hasData ? (
           <View style={styles.activitySection}>
             <View style={styles.activityHeaderRow}>
-              <Text style={styles.activityTitle}>Aktivitas Presensi</Text>
+              <Text style={styles.activityTitle}>{t('history.activityTitle')}</Text>
               {selectedDateFilter !== null && (
                 <Text style={styles.activityCountBadge}>
-                  {filteredActivities.length} Riwayat
+                  {t('history.recordCount', { count: filteredActivities.length })}
                 </Text>
               )}
             </View>
@@ -710,7 +700,7 @@ export default function HistoryScreen() {
                       pressed && styles.activityCardPressed,
                     ]}
                     accessibilityRole="button"
-                    accessibilityLabel={`Detail presensi ${item.day}`}
+                    accessibilityLabel={t('history.detailLabel', { day: item.day })}
                   >
                     <View style={styles.calendarIconBox}>
                       <Feather name="calendar" size={18} color="#0E7C86" />
@@ -728,13 +718,13 @@ export default function HistoryScreen() {
               <View style={styles.noFilterResultsCard}>
                 <Feather name="calendar" size={26} color="#94A3B8" style={{ marginBottom: 8 }} />
                 <Text style={styles.noFilterResultsText}>
-                  Tidak ada catatan presensi pada tanggal {selectedDateFilter} {currentMonth.shortName} 2026.
+                  {t('history.noRecordsOnDate', { date: selectedDateLabel })}
                 </Text>
                 <Pressable
                   onPress={() => setSelectedDateFilter(null)}
                   style={styles.resetFilterBtn}
                 >
-                  <Text style={styles.resetFilterBtnText}>Tampilkan Semua Hari</Text>
+                  <Text style={styles.resetFilterBtnText}>{t('history.showAllDays')}</Text>
                 </Pressable>
               </View>
             )}
@@ -752,9 +742,9 @@ export default function HistoryScreen() {
               </View>
             </View>
 
-            <Text style={styles.emptyTitle}>Belum ada absensi bulan ini.</Text>
+            <Text style={styles.emptyTitle}>{t('history.emptyTitle')}</Text>
             <Text style={styles.emptySubtitle}>
-              Catatan kehadiran kamu untuk periode ini akan otomatis muncul setelah kamu melakukan presensi masuk pertama.
+              {t('history.emptySubtitle')}
             </Text>
 
             {/* Tombol Lihat Bulan Sebelumnya */}
@@ -766,7 +756,7 @@ export default function HistoryScreen() {
               ]}
             >
               <Feather name="rotate-ccw" size={16} color="#047857" style={{ marginRight: 8 }} />
-              <Text style={styles.prevMonthBtnText}>Lihat Bulan Sebelumnya</Text>
+              <Text style={styles.prevMonthBtnText}>{t('history.viewPreviousMonth')}</Text>
             </Pressable>
 
             {/* Tombol Kembali ke Beranda */}
@@ -778,7 +768,7 @@ export default function HistoryScreen() {
               ]}
             >
               <Feather name="arrow-left" size={16} color="#0E7C86" style={{ marginRight: 8 }} />
-              <Text style={styles.backHomeBtnText}>Kembali ke Beranda</Text>
+              <Text style={styles.backHomeBtnText}>{t('common.backToHome')}</Text>
             </Pressable>
           </View>
         )}
@@ -789,26 +779,26 @@ export default function HistoryScreen() {
         {/* Tab Riwayat (Aktif) */}
         <Pressable style={styles.tabButton} onPress={() => {}}>
           <Feather name="rotate-ccw" size={22} color="#05564E" />
-          <Text style={[styles.tabLabel, { color: '#05564E', fontWeight: '700' }]}>Riwayat</Text>
+          <Text style={[styles.tabLabel, { color: '#05564E', fontWeight: '700' }]}>{t('common.tabs.history')}</Text>
         </Pressable>
 
         {/* Tab Tengah: Floating Tombol Beranda */}
         <View style={styles.centerFabContainer}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Kembali ke Beranda"
+            accessibilityLabel={t('common.backToHome')}
             onPress={() => router.replace('/(app)/home')}
             style={({ pressed }) => [styles.fabButton, pressed && styles.fabButtonPressed]}
           >
             <Feather name="home" size={26} color="#FFFFFF" />
           </Pressable>
-          <Text style={[styles.fabLabel, { color: '#64748B' }]}>Beranda</Text>
+          <Text style={[styles.fabLabel, { color: '#64748B' }]}>{t('common.tabs.home')}</Text>
         </View>
 
         {/* Tab Profil */}
         <Pressable style={styles.tabButton} onPress={() => router.push('/(app)/profile')}>
           <Feather name="user" size={22} color="#64748B" />
-          <Text style={[styles.tabLabel, { color: '#64748B' }]}>Profil</Text>
+          <Text style={[styles.tabLabel, { color: '#64748B' }]}>{t('common.tabs.profile')}</Text>
         </Pressable>
       </View>
 
@@ -836,7 +826,7 @@ export default function HistoryScreen() {
                   pressed && styles.cleanNavBtnPressed,
                 ]}
                 hitSlop={8}
-                accessibilityLabel="Bulan sebelumnya"
+                accessibilityLabel={t('history.previousMonth')}
               >
                 <Feather
                   name="chevron-left"
@@ -851,9 +841,9 @@ export default function HistoryScreen() {
                   setShowMonthPicker(false);
                 }}
                 hitSlop={6}
-                accessibilityLabel="Pilih bulan ini"
+                accessibilityLabel={t('history.pickThisMonth')}
               >
-                <Text style={styles.cleanMonthTitleText}>{currentMonth.name}</Text>
+                <Text style={styles.cleanMonthTitleText}>{monthTitle}</Text>
               </Pressable>
 
               <Pressable
@@ -865,7 +855,7 @@ export default function HistoryScreen() {
                   pressed && styles.cleanNavBtnPressed,
                 ]}
                 hitSlop={8}
-                accessibilityLabel="Bulan berikutnya"
+                accessibilityLabel={t('history.nextMonth')}
               >
                 <Feather
                   name="chevron-right"
@@ -878,7 +868,7 @@ export default function HistoryScreen() {
                 onPress={() => setShowMonthPicker(false)}
                 style={styles.cleanCloseBtn}
                 hitSlop={10}
-                accessibilityLabel="Tutup kalender"
+                accessibilityLabel={t('history.closeCalendar')}
               >
                 <Feather name="x" size={18} color="#64748B" />
               </Pressable>
@@ -886,7 +876,7 @@ export default function HistoryScreen() {
 
             {/* Baris Nama Hari: Min, Sen, Sel, Rab, Kam, Jum, Sab */}
             <View style={styles.cleanWeekRow}>
-              {DAYS_OF_WEEK.map((d, i) => (
+              {weekdayShortNames().map((d, i) => (
                 <View key={d} style={styles.cleanWeekCell}>
                   <Text
                     style={[
@@ -927,7 +917,7 @@ export default function HistoryScreen() {
                     }}
                     style={styles.cleanDayCell}
                     hitSlop={2}
-                    accessibilityLabel={`Tanggal ${dayNum}`}
+                    accessibilityLabel={t('history.dayLabel', { day: dayNum })}
                   >
                     <View
                       style={[
@@ -971,15 +961,15 @@ export default function HistoryScreen() {
             <View style={styles.cleanLegendRow}>
               <View style={styles.cleanLegendItem}>
                 <View style={[styles.cleanLegendDot, styles.cleanDotOnTime]} />
-                <Text style={styles.cleanLegendText}>Tepat Waktu</Text>
+                <Text style={styles.cleanLegendText}>{t('common.status.onTime')}</Text>
               </View>
               <View style={styles.cleanLegendItem}>
                 <View style={[styles.cleanLegendDot, styles.cleanDotLate]} />
-                <Text style={styles.cleanLegendText}>Terlambat</Text>
+                <Text style={styles.cleanLegendText}>{t('common.status.late')}</Text>
               </View>
               <View style={styles.cleanLegendItem}>
                 <View style={[styles.cleanLegendDot, styles.cleanDotAbsent]} />
-                <Text style={styles.cleanLegendText}>Tidak Hadir</Text>
+                <Text style={styles.cleanLegendText}>{t('common.status.absent')}</Text>
               </View>
             </View>
           </View>

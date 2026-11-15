@@ -90,9 +90,14 @@ Cek versi major `expo` di `package.json`, lalu buka dokumentasi versi itu
 3. Token **hanya** di `expo-secure-store` (`src/lib/token-storage.ts`), bukan AsyncStorage.
 4. Warna/spasi dari `src/theme` — jangan hardcode hex di komponen.
 5. Env publik berprefix `EXPO_PUBLIC_` masuk ke bundle — **tidak boleh berisi secret**.
-6. Teks UI Bahasa Indonesia; nama kode bahasa Inggris. Import pakai alias `@/...`.
+6. Teks UI lewat i18n (`react-i18next`, kamus `src/i18n/locales/id.ts` dan `en.ts`; `en` harus punya kunci yang sama dengan `id`, dicek
+   typecheck). Bahasa mengikuti bahasa perangkat: Indonesia untuk `id`, selain itu Inggris. Jangan hardcode teks UI di komponen; tanggal/jam
+   lewat `src/lib/attendance-format.ts`. Nama kode bahasa Inggris. Import pakai alias `@/...`.
 7. Utamakan modul Expo (`expo-camera`, `expo-location`, ...) — tersedia di Expo Go.
-8. Permission dikonfigurasi lewat plugin `app.json` dengan alasan Bahasa Indonesia, diminta tepat sebelum dipakai.
+8. Permission dikonfigurasi lewat plugin/`infoPlist` `app.json`, diminta tepat sebelum dipakai. Alur izin (App Store 5.1.1(iv)) lewat
+   `usePermissionGate` (`src/hooks`): status `undetermined` langsung memanggil dialog sistem tanpa layar/tombol Pengaturan; `denied` +
+   `canAskAgain` memakai tombol "Lanjutkan"; hanya `denied` tanpa `canAskAgain` (atau GPS mati) yang boleh menawarkan `Linking.openSettings()`.
+   Lokasi hanya foreground (When In Use), jangan minta background.
 9. OTA (expo-updates ke server sendiri): commit JS/aset di `loginrek-mobile/` dirilis otomatis oleh job `publish-ota`
    (`.github/workflows/loginrek.yml`); perubahan native/`app.json`/`google-services.json`/sertifikat ditolak CI dan butuh `eas build` +
    `rebase_native`. Jangan commit `keys/`. Detail: `docs/ARCHITECTURE.md` ("Update OTA").

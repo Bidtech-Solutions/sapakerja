@@ -13,6 +13,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -27,6 +28,7 @@ import { colors } from '@/theme/colors';
 
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -48,7 +50,7 @@ export default function LoginScreen() {
 
   async function handleLogin() {
     if (!identifier.trim() || !password) {
-      setErrorMessage('Silakan isi email dan kata sandi kamu');
+      setErrorMessage(t('login.fillAllFields'));
       return;
     }
 
@@ -70,8 +72,8 @@ export default function LoginScreen() {
       const userAccount: UserAccount = {
         id: `usr-${apiUser.id}`,
         email: apiUser.email,
-        fullName: apiUser.fullName ?? 'Karyawan',
-        role: apiUser.role ?? 'Karyawan',
+        fullName: apiUser.fullName ?? t('common.employee'),
+        role: apiUser.role ?? t('common.employee'),
         onTimeCount: 0,
         lateCount: 0,
         todayCheckIn: null,
@@ -83,13 +85,14 @@ export default function LoginScreen() {
       router.replace('/(app)/home');
     } catch (err: any) {
       if (err instanceof ApiError) {
+        // Pesan server berbahasa Indonesia; tampilkan teks lokal sesuai bahasa perangkat.
         setErrorMessage(
           err.status === 400 || err.status === 401
-            ? err.errors?.[0]?.message || 'Email atau kata sandi salah.'
-            : 'Terjadi kesalahan pada server. Coba lagi beberapa saat.',
+            ? t('login.invalidCredentials')
+            : t('login.serverError'),
         );
       } else {
-        setErrorMessage('Tidak dapat terhubung ke server. Login pertama wajib online.');
+        setErrorMessage(t('login.offline'));
       }
     } finally {
       setIsLoading(false);
@@ -113,11 +116,11 @@ export default function LoginScreen() {
             <Image
               source={require('@/assets/logo-symbol.png')}
               style={styles.logoImage}
-              accessibilityLabel="Logo SapaKerja"
+              accessibilityLabel={t('login.logoLabel')}
             />
           </View>
           <Text style={styles.brandTitle}>SapaKerja</Text>
-          <Text style={styles.brandSubtitle}>Simpan akunmu dengan mudah</Text>
+          <Text style={styles.brandSubtitle}>{t('login.tagline')}</Text>
         </View>
       </LinearGradient>
 
@@ -133,8 +136,8 @@ export default function LoginScreen() {
           bounces={false}
         >
           {/* Judul Form */}
-          <Text style={styles.formTitle}>Masuk</Text>
-          <Text style={styles.formSubtitle}>Silakan masuk dengan akun karyawan kamu</Text>
+          <Text style={styles.formTitle}>{t('login.title')}</Text>
+          <Text style={styles.formSubtitle}>{t('login.subtitle')}</Text>
 
           {/* Banner Error jika ada */}
           {errorMessage ? (
@@ -146,12 +149,12 @@ export default function LoginScreen() {
 
           {/* Input Email / No. HP */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Email atau No. HP</Text>
+            <Text style={styles.label}>{t('login.identifierLabel')}</Text>
             <View style={styles.inputWrapper}>
               <Feather name="mail" size={20} color="#94A3B8" style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
-                placeholder="nama@perusahaan.com"
+                placeholder={t('login.identifierPlaceholder')}
                 placeholderTextColor="#94A3B8"
                 value={identifier}
                 onChangeText={(text) => {
@@ -167,12 +170,12 @@ export default function LoginScreen() {
 
           {/* Input Password */}
           <View style={[styles.inputGroup, { marginTop: 18 }]}>
-            <Text style={styles.label}>Password</Text>
+            <Text style={styles.label}>{t('login.passwordLabel')}</Text>
             <View style={styles.inputWrapper}>
               <Feather name="lock" size={20} color="#94A3B8" style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
-                placeholder="Masukkan password"
+                placeholder={t('login.passwordPlaceholder')}
                 placeholderTextColor="#94A3B8"
                 value={password}
                 onChangeText={(text) => {
@@ -199,6 +202,7 @@ export default function LoginScreen() {
           {/* Tombol Masuk */}
           <Pressable
             accessibilityRole="button"
+            accessibilityLabel={t('login.submit')}
             onPress={handleLogin}
             disabled={isLoading}
             style={({ pressed }) => [
@@ -211,7 +215,7 @@ export default function LoginScreen() {
               <ActivityIndicator color="#FFFFFF" size="small" />
             ) : (
               <>
-                <Text style={styles.submitButtonText}>Masuk</Text>
+                <Text style={styles.submitButtonText}>{t('login.submit')}</Text>
                 <Feather name="arrow-right" size={20} color="#FFFFFF" style={styles.arrowIcon} />
               </>
             )}

@@ -16,8 +16,12 @@ jest.mock('expo-camera', () => {
   const { View } = require('react-native');
   return {
     Camera: {
-      getCameraPermissionsAsync: jest.fn().mockResolvedValue({ granted: false }),
-      requestCameraPermissionsAsync: jest.fn().mockResolvedValue({ granted: true }),
+      getCameraPermissionsAsync: jest
+        .fn()
+        .mockResolvedValue({ status: 'undetermined', granted: false, canAskAgain: true }),
+      requestCameraPermissionsAsync: jest
+        .fn()
+        .mockResolvedValue({ status: 'granted', granted: true, canAskAgain: true }),
     },
     CameraView: React.forwardRef((props, ref) => {
       React.useImperativeHandle(ref, () => ({
@@ -29,8 +33,13 @@ jest.mock('expo-camera', () => {
 });
 
 jest.mock('expo-location', () => ({
-  getForegroundPermissionsAsync: jest.fn().mockResolvedValue({ granted: false }),
-  requestForegroundPermissionsAsync: jest.fn().mockResolvedValue({ granted: true }),
+  getForegroundPermissionsAsync: jest
+    .fn()
+    .mockResolvedValue({ status: 'undetermined', granted: false, canAskAgain: true }),
+  requestForegroundPermissionsAsync: jest
+    .fn()
+    .mockResolvedValue({ status: 'granted', granted: true, canAskAgain: true }),
+  hasServicesEnabledAsync: jest.fn().mockResolvedValue(true),
   getCurrentPositionAsync: jest.fn().mockResolvedValue({
     coords: { latitude: 1.1059257, longitude: 104.0753418, accuracy: 5 },
   }),
@@ -38,11 +47,21 @@ jest.mock('expo-location', () => ({
 }));
 
 jest.mock('expo-image-picker', () => ({
-  requestMediaLibraryPermissionsAsync: jest.fn().mockResolvedValue({ granted: true }),
+  getMediaLibraryPermissionsAsync: jest
+    .fn()
+    .mockResolvedValue({ status: 'undetermined', granted: false, canAskAgain: true }),
+  requestMediaLibraryPermissionsAsync: jest
+    .fn()
+    .mockResolvedValue({ status: 'granted', granted: true, canAskAgain: true }),
   launchImageLibraryAsync: jest.fn().mockResolvedValue({
     canceled: false,
     assets: [{ uri: 'file://mock-avatar.jpg' }],
   }),
+}));
+
+// Bahasa uji ditentukan eksplisit lewat i18n.changeLanguage di tiap tes.
+jest.mock('expo-localization', () => ({
+  getLocales: () => [{ languageCode: 'en', languageTag: 'en-US' }],
 }));
 
 jest.mock('@react-native-community/netinfo', () => ({

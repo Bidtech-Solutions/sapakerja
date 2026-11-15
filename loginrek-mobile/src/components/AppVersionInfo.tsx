@@ -1,15 +1,17 @@
 import { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { getAppInfo } from '@/lib/app-info';
 import { colors, spacing } from '@/theme/colors';
 
 /** Info lingkungan, versi, build, dan rilis OTA yang sedang berjalan. */
 export function AppVersionInfo() {
-  const info = useMemo(() => getAppInfo(), []);
+  const { t } = useTranslation();
+  const info = useMemo(() => getAppInfo(t('appInfo.embedded')), [t]);
 
   return (
-    <View style={styles.container} accessibilityLabel="Informasi versi aplikasi">
+    <View style={styles.container} accessibilityLabel={t('appInfo.label')}>
       <Text style={styles.environment}>{info.environment}</Text>
       <Text style={styles.line}>{info.versionLine}</Text>
       <Text style={styles.line} selectable>

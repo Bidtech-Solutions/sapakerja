@@ -22,23 +22,24 @@ export type RawAppInfo = {
   publishId: string | null;
 };
 
-const EMBEDDED_LABEL = 'Bawaan build';
+/** Label bawaan; UI memakai terjemahan (appInfo.embedded) lewat parameter getAppInfo. */
+const DEFAULT_EMBEDDED_LABEL = 'Bawaan build';
 
 function capitalize(value: string): string {
   return value ? value.charAt(0).toUpperCase() + value.slice(1) : value;
 }
 
 /** Fungsi murni: susun teks dari nilai mentah (mudah diuji tanpa modul native). */
-export function buildAppInfo(raw: RawAppInfo): AppInfo {
+export function buildAppInfo(raw: RawAppInfo, embeddedLabel: string = DEFAULT_EMBEDDED_LABEL): AppInfo {
   const version = raw.nativeVersion ?? raw.configVersion;
   const parts = [
     version ? `v${version}` : null,
     raw.nativeBuild ? `Build (${raw.nativeBuild})` : null,
   ];
 
-  let ota = EMBEDDED_LABEL;
+  let ota = embeddedLabel;
   if (!raw.isEmbeddedLaunch) {
-    ota = raw.publishId ?? (raw.updateId ? raw.updateId.slice(0, 8) : EMBEDDED_LABEL);
+    ota = raw.publishId ?? (raw.updateId ? raw.updateId.slice(0, 8) : embeddedLabel);
   }
 
   return {
@@ -70,15 +71,18 @@ function readPublishId(): string | null {
   return typeof value === 'string' && value ? value : null;
 }
 
-export function getAppInfo(): AppInfo {
+export function getAppInfo(embeddedLabel?: string): AppInfo {
   const app = readApplication();
-  return buildAppInfo({
-    appEnv: env.appEnv,
-    nativeVersion: app.version,
-    nativeBuild: app.build,
-    configVersion: Constants.expoConfig?.version ?? null,
-    isEmbeddedLaunch: Updates.isEmbeddedLaunch,
-    updateId: Updates.updateId,
-    publishId: readPublishId(),
-  });
+  return buildAppInfo(
+    {
+      appEnv: env.appEnv,
+      nativeVersion: app.version,
+      nativeBuild: app.build,
+      configVersion: Constants.expoConfig?.version ?? null,
+      isEmbeddedLaunch: Updates.isEmbeddedLaunch,
+      updateId: Updates.updateId,
+      publishId: readPublishId(),
+    },
+    embeddedLabel,
+  );
 }

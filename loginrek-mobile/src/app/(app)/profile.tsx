@@ -4,6 +4,7 @@ import {
   Alert,
   Image,
   KeyboardAvoidingView,
+  Linking,
   Modal,
   Platform,
   Pressable,
@@ -14,6 +15,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Feather } from '@expo/vector-icons';
@@ -25,6 +27,8 @@ import { authApi, ApiError, setAccessToken } from '@/lib/api';
 import { tokenStorage } from '@/lib/token-storage';
 import { userStore, UserAccount } from '@/lib/user-store';
 import { permissionStore } from '@/lib/permission-store';
+import { mediaLibraryPermission } from '@/lib/permission-adapters';
+import { classifyPermission } from '@/lib/permission-gate';
 import { AppVersionInfo } from '@/components/AppVersionInfo';
 
 // Format jam realtime 24 jam (contoh: 13:00 untuk 1 siang, 16:00 untuk 4 sore)
@@ -37,6 +41,7 @@ function formatTime24(date: Date): string {
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
   const [currentTime, setCurrentTime] = useState(() => formatTime24(new Date()));
 
@@ -100,25 +105,22 @@ export default function ProfileScreen() {
   // Simpan perubahan kata sandi
   async function handleSave() {
     if (!currentPassword && !newPassword) {
-      Alert.alert(
-        'Profil Tersimpan Otomatis 🎉',
-        'Foto profil kamu sudah tersimpan secara otomatis tanpa perlu menekan tombol simpan.\n\nMasukkan kata sandi saat ini dan kata sandi baru jika ingin mengubah kata sandi akun.'
-      );
+      Alert.alert(t('profile.autoSavedTitle'), t('profile.autoSavedBody'));
       return;
     }
 
     if (!currentPassword) {
-      Alert.alert('Perhatian', 'Silakan masukkan password saat ini.');
+      Alert.alert(t('common.notice'), t('profile.enterCurrent'));
       return;
     }
 
     if (!newPassword) {
-      Alert.alert('Perhatian', 'Silakan masukkan password baru.');
+      Alert.alert(t('common.notice'), t('profile.enterNew'));
       return;
     }
 
     if (newPassword.length < 8) {
-      Alert.alert('Perhatian', 'Password baru minimal harus 8 karakter.');
+      Alert.alert(t('common.notice'), t('profile.minLength'));
       return;
     }
 
@@ -130,29 +132,45 @@ export default function ProfileScreen() {
       });
     } catch (apiErr: any) {
       if (apiErr instanceof ApiError) {
-        Alert.alert('Gagal', apiErr.message || 'Password saat ini yang Anda masukkan salah.');
+        // Pesan server berbahasa Indonesia: untuk kesalahan kredensial pakai teks lokal.
+        const credentialError = [400, 401, 403].includes(apiErr.status);
+        Alert.alert(
+          t('profile.failedTitle'),
+          credentialError ? t('profile.wrongPassword') : apiErr.message || t('profile.wrongPassword'),
+        );
       } else {
-        Alert.alert('Tidak ada koneksi', 'Ganti kata sandi membutuhkan koneksi internet. Coba lagi saat online.');
+        Alert.alert(t('profile.noConnectionTitle'), t('profile.noConnectionBody'));
       }
       return;
     }
 
     setCurrentPassword('');
     setNewPassword('');
-    Alert.alert('Sukses 🎉', 'Kata sandi berhasil diperbarui! Silakan gunakan kata sandi baru saat login berikutnya.');
+    Alert.alert(t('profile.passwordUpdatedTitle'), t('profile.passwordUpdatedBody'));
   }
 
   // Ubah foto profil dari galeri perangkat dengan izin resmi
   async function handleChangePhoto() {
     try {
-      // 1. Cek dan minta izin akses galeri foto (Media Library)
-      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      // 1. Izin galeri (dipicu langsung oleh ketukan pengguna): belum diputuskan atau boleh
+      //    ditanya lagi -> dialog sistem; Pengaturan hanya ditawarkan bila ditolak permanen.
+      let permission = await mediaLibraryPermission.get();
+      let permState = classifyPermission(permission);
+      if (permState === 'undetermined' || permState === 'canAsk') {
+        permission = await mediaLibraryPermission.request();
+        permState = classifyPermission(permission);
+      }
 
-      if (!permission.granted) {
+      if (permState !== 'granted') {
         Alert.alert(
-          'Izin Galeri Diperlukan',
-          'SapaKerja membutuhkan izin akses ke galeri foto Anda agar Anda dapat memilih dan mengubah foto profil akun. Silakan berikan izin di Pengaturan.',
-          [{ text: 'Mengerti' }]
+          t('permission.gallery.blockedTitle'),
+          t('permission.gallery.blockedBody'),
+          permState === 'blocked'
+            ? [
+                { text: t('common.cancel'), style: 'cancel' },
+                { text: t('common.openSettings'), onPress: () => void Linking.openSettings() },
+              ]
+            : [{ text: t('common.ok') }],
         );
         return;
       }
@@ -194,14 +212,12 @@ export default function ProfileScreen() {
         }
 
         Alert.alert(
-          'Foto Profil Berhasil Diperbarui! 🎉',
-          syncedToServer
-            ? 'Foto profil kamu otomatis tersimpan dan langsung terupdate di Web Dashboard Admin.'
-            : 'Foto profil tersimpan di HP dan akan otomatis tersinkron ke Web Dashboard saat server terhubung.'
+          t('profile.photoUpdatedTitle'),
+          syncedToServer ? t('profile.photoSynced') : t('profile.photoLocalOnly'),
         );
       }
     } catch (err: any) {
-      Alert.alert('Gagal Mengambil Foto', err?.message || 'Terjadi kesalahan saat membuka galeri foto.');
+      Alert.alert(t('profile.photoFailedTitle'), err?.message || t('profile.photoFailedBody'));
     } finally {
       setIsUploadingPhoto(false);
     }
@@ -254,8 +270,8 @@ export default function ProfileScreen() {
           {/* Top Header: Profil Singkat & Jam Realtime */}
           <View style={styles.topHeader}>
             <View>
-              <Text style={styles.userName}>{fullName || currentUser?.fullName || 'Karyawan'}</Text>
-              <Text style={styles.userRole}>{currentUser?.role ?? 'Karyawan'}</Text>
+              <Text style={styles.userName}>{fullName || currentUser?.fullName || t('common.employee')}</Text>
+              <Text style={styles.userRole}>{currentUser?.role ?? t('common.employee')}</Text>
             </View>
             <View style={styles.clockPill}>
               <Feather name="clock" size={13} color="#047857" style={styles.clockIcon} />
@@ -265,7 +281,7 @@ export default function ProfileScreen() {
 
           {/* Sub Header: Edit Profil */}
           <View style={styles.pageTitleRow}>
-            <Text style={styles.pageTitle}>Edit Profil</Text>
+            <Text style={styles.pageTitle}>{t('profile.editTitle')}</Text>
           </View>
 
           {/* Avatar Section */}
@@ -297,7 +313,7 @@ export default function ProfileScreen() {
                 style={styles.cameraBadge}
                 onPress={handleChangePhoto}
                 disabled={isUploadingPhoto}
-                accessibilityLabel="Ubah foto profil"
+                accessibilityLabel={t('profile.changePhotoLabel')}
               >
                 <Feather name="camera" size={15} color="#FFFFFF" />
               </Pressable>
@@ -308,7 +324,7 @@ export default function ProfileScreen() {
               hitSlop={8}
             >
               <Text style={styles.changePhotoText}>
-                {isUploadingPhoto ? 'Memperbarui...' : 'Ubah Foto'}
+                {isUploadingPhoto ? t('profile.updatingPhoto') : t('profile.changePhoto')}
               </Text>
             </Pressable>
           </View>
@@ -316,9 +332,9 @@ export default function ProfileScreen() {
           {/* Form Card */}
           <View style={styles.formCard}>
             {/* Input Nama Lengkap (Read-only) */}
-            <Text style={styles.inputLabel}>Nama Lengkap</Text>
+            <Text style={styles.inputLabel}>{t('profile.fullName')}</Text>
             <View style={styles.inputBoxDisabled}>
-              <Text style={styles.textInputDisabled}>{fullName || currentUser?.fullName || 'Karyawan'}</Text>
+              <Text style={styles.textInputDisabled}>{fullName || currentUser?.fullName || t('common.employee')}</Text>
               <Feather name="lock" size={14} color="#94A3B8" />
             </View>
 
@@ -326,16 +342,16 @@ export default function ProfileScreen() {
             <View style={styles.divider} />
 
             {/* Sub-judul Ganti Kata Sandi */}
-            <Text style={styles.sectionHeaderTitle}>Ganti Kata Sandi</Text>
+            <Text style={styles.sectionHeaderTitle}>{t('profile.changePassword')}</Text>
 
             {/* Input Password Saat Ini */}
-            <Text style={styles.passwordLabel}>Password Saat Ini</Text>
+            <Text style={styles.passwordLabel}>{t('profile.currentPassword')}</Text>
             <View style={styles.inputBoxWithIcon}>
               <TextInput
                 style={styles.textInputFlex}
                 value={currentPassword}
                 onChangeText={setCurrentPassword}
-                placeholder="Masukkan password saat ini"
+                placeholder={t('profile.currentPasswordPlaceholder')}
                 placeholderTextColor="#94A3B8"
                 secureTextEntry={!showCurrentPassword}
               />
@@ -353,13 +369,13 @@ export default function ProfileScreen() {
             </View>
 
             {/* Input Password Baru */}
-            <Text style={styles.passwordLabel}>Password Baru</Text>
+            <Text style={styles.passwordLabel}>{t('profile.newPassword')}</Text>
             <View style={styles.inputBoxWithIcon}>
               <TextInput
                 style={styles.textInputFlex}
                 value={newPassword}
                 onChangeText={setNewPassword}
-                placeholder="Minimal 8 karakter"
+                placeholder={t('profile.newPasswordPlaceholder')}
                 placeholderTextColor="#94A3B8"
                 secureTextEntry={!showNewPassword}
               />
@@ -385,7 +401,7 @@ export default function ProfileScreen() {
               pressed && styles.saveButtonPressed,
             ]}
           >
-            <Text style={styles.saveButtonText}>Simpan Perubahan</Text>
+            <Text style={styles.saveButtonText}>{t('profile.save')}</Text>
           </Pressable>
 
           {/* Tombol Keluar dari Akun (Logout) */}
@@ -397,7 +413,7 @@ export default function ProfileScreen() {
             ]}
           >
             <Feather name="log-out" size={18} color="#DC2626" style={styles.logoutIcon} />
-            <Text style={styles.logoutButtonText}>Keluar dari Akun</Text>
+            <Text style={styles.logoutButtonText}>{t('profile.logout')}</Text>
           </Pressable>
 
           {/* Info versi aplikasi: lingkungan, versi, build, rilis OTA */}
@@ -413,26 +429,26 @@ export default function ProfileScreen() {
           onPress={() => router.push('/(app)/history')}
         >
           <Feather name="rotate-ccw" size={22} color="#64748B" />
-          <Text style={[styles.tabLabel, { color: '#64748B' }]}>Riwayat</Text>
+          <Text style={[styles.tabLabel, { color: '#64748B' }]}>{t('common.tabs.history')}</Text>
         </Pressable>
 
         {/* Tab Tengah: Floating Tombol Beranda */}
         <View style={styles.centerFabContainer}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Kembali ke Beranda"
+            accessibilityLabel={t('common.backToHome')}
             onPress={goToHome}
             style={({ pressed }) => [styles.fabButton, pressed && styles.fabButtonPressed]}
           >
             <Feather name="home" size={26} color="#FFFFFF" />
           </Pressable>
-          <Text style={[styles.fabLabel, { color: '#64748B' }]}>Beranda</Text>
+          <Text style={[styles.fabLabel, { color: '#64748B' }]}>{t('common.tabs.home')}</Text>
         </View>
 
         {/* Tab Profil (Aktif) */}
         <Pressable style={styles.tabButton} onPress={() => {}}>
           <Feather name="user" size={22} color="#05564E" />
-          <Text style={[styles.tabLabel, { color: '#05564E', fontWeight: '700' }]}>Profil</Text>
+          <Text style={[styles.tabLabel, { color: '#05564E', fontWeight: '700' }]}>{t('common.tabs.profile')}</Text>
         </Pressable>
       </View>
 
@@ -453,9 +469,9 @@ export default function ProfileScreen() {
               <Feather name="log-out" size={26} color="#DC2626" />
             </View>
 
-            <Text style={styles.modalTitle}>Keluar dari Akun?</Text>
+            <Text style={styles.modalTitle}>{t('profile.logoutTitle')}</Text>
             <Text style={styles.modalMessage}>
-              Sesi login Anda akan diakhiri. Anda perlu memasukkan email dan kata sandi kembali untuk masuk.
+              {t('profile.logoutMessage')}
             </Text>
 
             <View style={styles.modalActions}>
@@ -463,14 +479,14 @@ export default function ProfileScreen() {
                 style={styles.modalCancelBtn}
                 onPress={() => setShowLogoutModal(false)}
               >
-                <Text style={styles.modalCancelText}>Batal</Text>
+                <Text style={styles.modalCancelText}>{t('common.cancel')}</Text>
               </Pressable>
 
               <Pressable
                 style={styles.modalConfirmBtn}
                 onPress={executeLogout}
               >
-                <Text style={styles.modalConfirmText}>Ya, Keluar</Text>
+                <Text style={styles.modalConfirmText}>{t('profile.logoutConfirm')}</Text>
               </Pressable>
             </View>
           </View>

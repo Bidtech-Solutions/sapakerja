@@ -4,6 +4,7 @@ import { ObserveRoot } from 'expo-observe';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import '@/i18n';
 import { setAccessToken, setUnauthorizedHandler } from '@/lib/api';
 import { tokenStorage } from '@/lib/token-storage';
 import { userStore } from '@/lib/user-store';
