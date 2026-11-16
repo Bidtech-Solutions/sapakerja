@@ -117,7 +117,7 @@ src/app (route)  ->  hook / logic  ->  src/lib/api.ts  ->  REST API
                           └─ device API: expo-location, expo-camera
 ```
 
-### Base URL API (`src/lib/env.ts`)
+### Base URL API (`src/lib/api.ts`)
 
 | Situasi | URL |
 | ------- | --- |
@@ -187,7 +187,7 @@ HP ──GET /updates/files/…──► bundle & aset (immutable)
   Nilai `EXPO_PUBLIC_*` diambil dari `eas.json` (`build.production.env`) agar bundle OTA identik dengan build production.
 - **Penanda rilis**: setiap rilis punya `publishId` (`<timestamp WIB>-<SHA 7 karakter>`, nama folder di `updates/`). CI menaruhnya di
   `manifest.metadata.publishId` (ikut ditandatangani). Layar Profil mobile menampilkan lingkungan, `v<version> Build (<nomor>)`, dan
-  `publishId` (atau "Bawaan build" bila belum ada update OTA) lewat `src/lib/app-info.ts`. Rilis sebelum penanda ini ditambahkan
+  `publishId` (atau "Bawaan build" bila belum ada update OTA) di layar Profil (`profile.tsx`). Rilis sebelum penanda ini ditambahkan
   tidak punya `publishId`; aplikasi menampilkan 8 karakter pertama `updateId` sebagai gantinya.
 
 - **Update di latar belakang** (bawaan expo-updates, tanpa kode tambahan): `checkAutomatically` dan `fallbackToCacheTimeout` tidak di-override di

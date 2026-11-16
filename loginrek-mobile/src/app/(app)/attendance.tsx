@@ -21,16 +21,14 @@ import { CameraView } from 'expo-camera';
 
 import { userStore, UserAccount } from '@/lib/user-store';
 import {
+  cameraPermission,
   classifyPermission,
+  isLocationServicesEnabled,
+  locationPermission,
   phaseAfterRequest,
   type GatePhase,
   type OsPermission,
-} from '@/lib/permission-gate';
-import {
-  cameraPermission,
-  isLocationServicesEnabled,
-  locationPermission,
-} from '@/lib/permission-adapters';
+} from '@/lib/permissions';
 import { statusLabel } from '@/lib/attendance-format';
 import { colors, Text } from '@/lib/theme';
 import { locationStore, OfficeConfig } from '@/lib/location-store';

@@ -56,10 +56,6 @@ export function monthName(monthIndex: number): string {
   return list('monthLong')[monthIndex] ?? '';
 }
 
-export function shortMonthName(monthIndex: number): string {
-  return list('monthShort')[monthIndex] ?? '';
-}
-
 export function weekdayShortNames(): string[] {
   return list('dayShort');
 }

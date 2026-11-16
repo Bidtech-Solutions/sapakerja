@@ -17,11 +17,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 
-import { attendanceApi, setAccessToken } from '@/lib/api';
+import { attendanceApi, getMediaUrl, setAccessToken } from '@/lib/api';
 import { tokenStorage } from '@/lib/token-storage';
 import { userStore, UserAccount, AttendanceRecord } from '@/lib/user-store';
 import { syncStore } from '@/lib/sync-store';
-import { getMediaUrl } from '@/lib/env';
 import {
   formatFullDate,
   formatMonthYear,

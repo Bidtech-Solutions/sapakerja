@@ -16,8 +16,7 @@ import { Feather } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 
 import { userStore, UserAccount, AttendanceRecord } from '@/lib/user-store';
-import { attendanceApi, AttendanceResponse } from '@/lib/api';
-import { getMediaUrl } from '@/lib/env';
+import { attendanceApi, AttendanceResponse, getMediaUrl } from '@/lib/api';
 import {
   isSameDay,
   monthName,
