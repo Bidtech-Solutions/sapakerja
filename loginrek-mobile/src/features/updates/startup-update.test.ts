@@ -159,9 +159,9 @@ describe('cek update', () => {
     );
   });
 
-  it('kegagalan sink breadcrumb (mis. Sentry) tidak pernah merusak gate', async () => {
+  it('kegagalan sink breadcrumb tidak pernah merusak gate', async () => {
     addBreadcrumb.mockImplementation(() => {
-      throw new Error('sentry belum siap');
+      throw new Error('sink bermasalah');
     });
     mockedUpdates.checkForUpdateAsync.mockRejectedValue(new Error('x'));
     await expect(runToEnd()).resolves.toMatchObject({ outcome: 'check-failed' });

@@ -29,7 +29,6 @@
     "@expo/vector-icons": "^15.0.2",
     "@hookform/resolvers": "^7.0.5",
     "@react-native-community/netinfo": "12.0.1",
-    "@sentry/react-native": "~8.28.0",
     "@tanstack/react-query": "^5.107.1",
     "dayjs": "^1.11.23",
     "expo": "~58.0.23",

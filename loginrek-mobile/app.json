@@ -78,14 +78,6 @@
       "expo-localization",
       "expo-background-task",
       [
-        "@sentry/react-native/expo",
-        {
-          "url": "https://sentry.io/",
-          "project": "sapakerja",
-          "organization": "pt-solusi-bisnis-jalanin-aja-d"
-        }
-      ],
-      [
         "expo-notifications",
         {
           "icon": "./assets/notification-icon.png",
