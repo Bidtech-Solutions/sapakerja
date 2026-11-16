@@ -113,7 +113,7 @@ Tabel `access_tokens` ada di model tetapi autentikasi memakai JWT stateless.
 ### Lapisan
 ```
 src/app (route)  ->  hook / logic  ->  src/lib/api.ts  ->  REST API
-                          ├─ src/lib/token-storage.ts (expo-secure-store)
+                          ├─ src/lib/session.ts (expo-secure-store)
                           └─ device API: expo-location, expo-camera
 ```
 

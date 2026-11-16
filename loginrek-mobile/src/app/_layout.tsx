@@ -6,8 +6,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import '@/i18n';
 import { setAccessToken, setUnauthorizedHandler } from '@/lib/api';
-import { tokenStorage } from '@/lib/token-storage';
-import { userStore } from '@/lib/user-store';
+import { tokenStorage, userStore } from '@/lib/session';
 import { colors } from '@/lib/theme';
 
 /**

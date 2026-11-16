@@ -8,6 +8,44 @@ import {
   toLocalISODate,
 } from '@/lib/attendance-format';
 
+/**
+ * Sesi pengguna di perangkat: token API (tokenStorage) dan cache profil + rekap absen (userStore).
+ * Keduanya BUKAN sumber autentikasi; identitas dan kata sandi hanya diverifikasi server.
+ */
+
+/**
+ * Penyimpanan token API di Keychain (iOS) / Keystore (Android)
+ * dan fallback localStorage jika dibuka di browser web.
+ */
+const KEY = 'loginrek.accessToken';
+
+export const tokenStorage = {
+  get: async (): Promise<string | null> => {
+    if (Platform.OS === 'web') {
+      return typeof window !== 'undefined' ? window.localStorage.getItem(KEY) : null;
+    }
+    return SecureStore.getItemAsync(KEY);
+  },
+  set: async (token: string): Promise<void> => {
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(KEY, token);
+      }
+      return;
+    }
+    return SecureStore.setItemAsync(KEY, token);
+  },
+  clear: async (): Promise<void> => {
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined') {
+        window.localStorage.removeItem(KEY);
+      }
+      return;
+    }
+    return SecureStore.deleteItemAsync(KEY);
+  },
+};
+
 export interface AttendanceRecord {
   id: string;
   /** Teks tanggal siap tampil (cache lama). Tampilan memakai `date` bila ada, lihat attendance-format. */
@@ -94,7 +132,12 @@ export const userStore = {
 
     const updatedUser: UserAccount = {
       ...user,
-      todayCheckIn: { date: new Date().toISOString().slice(0, 10), time: timeFormatted, isLate, photoUri },
+      todayCheckIn: {
+        date: new Date().toISOString().slice(0, 10),
+        time: timeFormatted,
+        isLate,
+        photoUri,
+      },
       onTimeCount: !isLate ? user.onTimeCount + 1 : user.onTimeCount,
       lateCount: isLate ? user.lateCount + 1 : user.lateCount,
       history: [newRecord, ...user.history.slice(0, 4)],

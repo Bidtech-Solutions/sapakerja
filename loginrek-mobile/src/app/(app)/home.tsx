@@ -18,8 +18,7 @@ import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 
 import { attendanceApi, getMediaUrl, setAccessToken } from '@/lib/api';
-import { tokenStorage } from '@/lib/token-storage';
-import { userStore, UserAccount, AttendanceRecord } from '@/lib/user-store';
+import { userStore, UserAccount, AttendanceRecord } from '@/lib/session';
 import { syncStore } from '@/lib/sync-store';
 import {
   formatFullDate,

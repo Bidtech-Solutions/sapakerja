@@ -51,7 +51,7 @@ export class ApiError extends Error {
 let accessToken: string | null = null;
 let unauthorizedHandler: (() => void) | null = null;
 
-/** Set/clear token Bearer di memori. Persistensi: lihat src/lib/token-storage.ts. */
+/** Set/clear token Bearer di memori. Persistensi: lihat tokenStorage di src/lib/session.ts. */
 export function setAccessToken(token: string | null) {
   accessToken = token;
 }

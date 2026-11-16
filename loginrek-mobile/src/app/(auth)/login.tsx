@@ -19,8 +19,7 @@ import { Feather } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 
 import { authApi, setAccessToken, ApiError } from '@/lib/api';
-import { userStore, UserAccount } from '@/lib/user-store';
-import { tokenStorage } from '@/lib/token-storage';
+import { tokenStorage, userStore, UserAccount } from '@/lib/session';
 // userStore imported above
 import { colors, Text, TextInput } from '@/lib/theme';
 

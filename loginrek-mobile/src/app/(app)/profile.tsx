@@ -23,8 +23,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Updates from 'expo-updates';
 
 import { authApi, ApiError, env, getMediaUrl, setAccessToken } from '@/lib/api';
-import { tokenStorage } from '@/lib/token-storage';
-import { userStore, UserAccount } from '@/lib/user-store';
+import { tokenStorage, userStore, UserAccount } from '@/lib/session';
 import { classifyPermission, mediaLibraryPermission } from '@/lib/permissions';
 import { colors, spacing, Text, TextInput } from '@/lib/theme';
 

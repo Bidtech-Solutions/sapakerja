@@ -1,5 +1,5 @@
 import type { AttendanceResponse } from '@/lib/api';
-import type { AttendanceRecord } from '@/lib/user-store';
+import type { AttendanceRecord } from '@/lib/session';
 import i18n from '@/i18n';
 
 /**

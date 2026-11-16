@@ -4,8 +4,7 @@ import { useObserve } from 'expo-observe';
 import { Redirect } from 'expo-router';
 
 import { setAccessToken } from '@/lib/api';
-import { tokenStorage } from '@/lib/token-storage';
-import { userStore } from '@/lib/user-store';
+import { tokenStorage, userStore } from '@/lib/session';
 
 type Target = '/(app)/home' | '/(auth)/login' | null;
 

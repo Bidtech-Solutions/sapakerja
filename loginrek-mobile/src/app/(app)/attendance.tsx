@@ -19,7 +19,7 @@ import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { CameraView } from 'expo-camera';
 
-import { userStore, UserAccount } from '@/lib/user-store';
+import { userStore, UserAccount } from '@/lib/session';
 import {
   cameraPermission,
   classifyPermission,

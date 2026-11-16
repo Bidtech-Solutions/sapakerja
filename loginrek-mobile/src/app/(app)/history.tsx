@@ -15,7 +15,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Feather } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 
-import { userStore, UserAccount, AttendanceRecord } from '@/lib/user-store';
+import { userStore, UserAccount, AttendanceRecord } from '@/lib/session';
 import { attendanceApi, AttendanceResponse, getMediaUrl } from '@/lib/api';
 import {
   isSameDay,
