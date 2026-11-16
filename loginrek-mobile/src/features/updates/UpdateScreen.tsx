@@ -1,9 +1,8 @@
 import { ActivityIndicator, Image, StyleSheet, View } from 'react-native';
-import { Text } from '@/components/typography';
 import { useTranslation } from 'react-i18next';
 import { useUpdates } from 'expo-updates';
 
-import { splash } from '@/theme/colors';
+import { splash, Text } from '@/lib/theme';
 
 // Harus sama dengan konfigurasi plugin expo-splash-screen di app.json (lebar 200, contain).
 const LOGO_SIZE = 200;

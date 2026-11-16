@@ -11,7 +11,6 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import { Text, TextInput } from '@/components/typography';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -23,7 +22,7 @@ import { authApi, setAccessToken, ApiError } from '@/lib/api';
 import { userStore, UserAccount } from '@/lib/user-store';
 import { tokenStorage } from '@/lib/token-storage';
 // userStore imported above
-import { colors } from '@/theme/colors';
+import { colors, Text, TextInput } from '@/lib/theme';
 
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();

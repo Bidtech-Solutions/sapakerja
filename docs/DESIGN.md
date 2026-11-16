@@ -10,7 +10,7 @@ Satu sistem desain untuk dashboard (admin/HR, desktop) dan mobile (karyawan).
 
 ## Token warna
 
-Mobile: `loginrek-mobile/src/theme/colors.ts`. Dashboard: `loginrek-dashboard/src/index.css`.
+Mobile: `loginrek-mobile/src/lib/theme.ts`. Dashboard: `loginrek-dashboard/src/index.css`.
 Kedua klien memakai nilai yang sama.
 
 | Token | Nilai | Pemakaian |

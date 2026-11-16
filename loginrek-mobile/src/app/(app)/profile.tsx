@@ -13,7 +13,6 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import { Text, TextInput } from '@/components/typography';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -29,7 +28,7 @@ import { permissionStore } from '@/lib/permission-store';
 import { mediaLibraryPermission } from '@/lib/permission-adapters';
 import { classifyPermission } from '@/lib/permission-gate';
 import { getAppInfo } from '@/lib/app-info';
-import { colors, spacing } from '@/theme/colors';
+import { colors, spacing, Text, TextInput } from '@/lib/theme';
 
 // Format jam realtime 24 jam (contoh: 13:00 untuk 1 siang, 16:00 untuk 4 sore)
 function formatTime24(date: Date): string {

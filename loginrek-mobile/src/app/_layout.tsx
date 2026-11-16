@@ -10,7 +10,7 @@ import { UpdateGate } from '@/features/updates/UpdateGate';
 import { setAccessToken, setUnauthorizedHandler } from '@/lib/api';
 import { tokenStorage } from '@/lib/token-storage';
 import { userStore } from '@/lib/user-store';
-import { colors } from '@/theme/colors';
+import { colors } from '@/lib/theme';
 
 // Splash native tetap tampil sampai UpdateGate menyembunyikannya (satu-satunya hideAsync).
 // Dipanggil di tingkat modul, sebelum render apa pun; jangan panggil lagi di tempat lain.

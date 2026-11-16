@@ -11,7 +11,6 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import { Text } from '@/components/typography';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -28,7 +27,7 @@ import {
   locationPermission,
 } from '@/lib/permission-adapters';
 import { statusLabel } from '@/lib/attendance-format';
-import { colors } from '@/theme/colors';
+import { colors, Text } from '@/lib/theme';
 import { locationStore, OfficeConfig } from '@/lib/location-store';
 import { syncStore } from '@/lib/sync-store';
 import { attendanceApi } from '@/lib/api';
