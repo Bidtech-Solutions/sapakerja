@@ -59,10 +59,9 @@ export type Breadcrumb = {
 let breadcrumbSink: ((breadcrumb: Breadcrumb) => void) | null = null;
 
 /**
- * Hubungkan ke Sentry SETELAH Sentry.init() dipanggil, mis. di tempat init:
- *   setStartupBreadcrumbSink((b) => Sentry.addBreadcrumb(b));
- * Sengaja tidak mengimpor @sentry/react-native di sini: SDK-nya menambah ~4,6 MB ke bundle JS
- * (ikut menggandakan ukuran unduhan OTA) dan saat ini Sentry.init belum dipanggil di JS app.
+ * Titik pasang opsional untuk catatan diagnostik gate (mis. ke layanan crash reporting bila
+ * suatu saat dipakai). Bawaannya tidak ada sink, jadi tidak ada yang dikirim ke mana pun.
+ * Proyek ini tidak memakai Sentry; jangan impor SDK berat di modul ini (ikut membesarkan bundle OTA).
  */
 export function setStartupBreadcrumbSink(sink: ((breadcrumb: Breadcrumb) => void) | null): void {
   breadcrumbSink = sink;
