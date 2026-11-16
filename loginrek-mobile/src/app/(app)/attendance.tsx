@@ -28,6 +28,7 @@ import {
   locationPermission,
 } from '@/lib/permission-adapters';
 import { statusLabel } from '@/lib/attendance-format';
+import { colors } from '@/theme/colors';
 import { locationStore, OfficeConfig } from '@/lib/location-store';
 import { syncStore } from '@/lib/sync-store';
 import { attendanceApi } from '@/lib/api';
@@ -511,7 +512,7 @@ export default function AttendanceScreen() {
                 source={
                   capturedPhotoUri !== 'fallback'
                     ? { uri: capturedPhotoUri }
-                    : require('@/assets/default_avatar.png')
+                    : require('@/assets/default-avatar.png')
                 }
                 style={[
                   styles.previewPhotoImage,
@@ -649,12 +650,8 @@ export default function AttendanceScreen() {
               },
             })
           ) : (
-            /* Fallback foto kantor jika kamera fisik belum aktif / diizinkan browser */
-            <Image
-              source={require('@/assets/office_camera_bg.jpg')}
-              style={styles.cameraBackground}
-              resizeMode="cover"
-            />
+            /* Latar polos jika kamera fisik belum aktif / diizinkan browser (hanya web) */
+            <View style={[styles.cameraBackground, { backgroundColor: colors.text }]} />
           )}
 
           {/* Overlay Gelap Transparan Tipis */}

@@ -398,7 +398,7 @@ export default function HistoryScreen() {
     const photoSource =
       targetPhotoUri
         ? { uri: targetPhotoUri }
-        : require('@/assets/default_avatar.png');
+        : require('@/assets/default-avatar.png');
 
     return (
       <View style={styles.screen}>

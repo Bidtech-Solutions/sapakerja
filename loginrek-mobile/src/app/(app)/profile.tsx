@@ -294,7 +294,7 @@ export default function ProfileScreen() {
                     source={
                       !imageError && resolvedUrl
                         ? { uri: resolvedUrl }
-                        : require('@/assets/default_avatar.png')
+                        : require('@/assets/default-avatar.png')
                     }
                     style={styles.avatarImage}
                     resizeMode="cover"
