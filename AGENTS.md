@@ -44,7 +44,7 @@ cd loginrek-dashboard && npm install && npm run dev      # lint: npm run lint
 
 # Mobile
 cd loginrek-mobile && npm install && npm run dev         # Expo Go
-npm run lint && npm run typecheck && npm test && npm run doctor
+npm run lint && npm run typecheck && npm run doctor
 npx expo install <pkg>                                   # SELALU untuk menambah library RN/Expo
 ```
 
@@ -113,5 +113,5 @@ Cek versi major `expo` di `package.json`, lalu buka dokumentasi versi itu
 
 - Backend: `go vet ./... && go test ./...` lulus.
 - Dashboard: `npm run lint && npm run build` lulus.
-- Mobile: `npm run lint && npm run typecheck` lulus (`npm test` hanya bila ada tes; saat ini belum ada berkas tes, script tetap lulus), `npm run doctor` tanpa error,
+- Mobile: `npm run lint && npm run typecheck` lulus, `npm run doctor` tanpa error,
   dicoba di Expo Go (minimal satu perangkat).

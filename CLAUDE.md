@@ -8,5 +8,5 @@
 - Dokumentasi di `docs/`. Kontrak API: `docs/API.md` — jangan mengarang endpoint/respons.
 - Plugin `expo@claude-plugins-official` diaktifkan lewat `loginrek-mobile/.claude/settings.json`.
 - Tidak bisa membuka simulator/HP di sini; verifikasi mobile dengan
-  `npm run lint && npm run typecheck && npm run doctor` (`npm test` bila ada tes), dan bila perlu
+  `npm run lint && npm run typecheck && npm run doctor`, dan bila perlu
   `npx expo export --platform ios --platform android` untuk memastikan bundle bisa dibuat.
