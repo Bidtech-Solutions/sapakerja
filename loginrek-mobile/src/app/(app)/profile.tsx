@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -28,7 +28,8 @@ import { userStore, UserAccount } from '@/lib/user-store';
 import { permissionStore } from '@/lib/permission-store';
 import { mediaLibraryPermission } from '@/lib/permission-adapters';
 import { classifyPermission } from '@/lib/permission-gate';
-import { AppVersionInfo } from '@/components/AppVersionInfo';
+import { getAppInfo } from '@/lib/app-info';
+import { colors, spacing } from '@/theme/colors';
 
 // Format jam realtime 24 jam (contoh: 13:00 untuk 1 siang, 16:00 untuk 4 sore)
 function formatTime24(date: Date): string {
@@ -41,6 +42,7 @@ function formatTime24(date: Date): string {
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
+  const appInfo = useMemo(() => getAppInfo(t('appInfo.embedded')), [t]);
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
   const [currentTime, setCurrentTime] = useState(() => formatTime24(new Date()));
 
@@ -416,7 +418,13 @@ export default function ProfileScreen() {
           </Pressable>
 
           {/* Info versi aplikasi: lingkungan, versi, build, rilis OTA */}
-          <AppVersionInfo />
+          <View style={appInfoStyles.container} accessibilityLabel={t('appInfo.label')}>
+            <Text style={appInfoStyles.environment}>{appInfo.environment}</Text>
+            <Text style={appInfoStyles.line}>{appInfo.versionLine}</Text>
+            <Text style={appInfoStyles.line} selectable>
+              {appInfo.ota}
+            </Text>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
 
@@ -881,5 +889,22 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+});
+
+const appInfoStyles = StyleSheet.create({
+  container: {
+    alignItems: 'center',
+    marginTop: spacing.xl,
+    gap: 2,
+  },
+  environment: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.textMuted,
+  },
+  line: {
+    fontSize: 12,
+    color: colors.textMuted,
   },
 });
