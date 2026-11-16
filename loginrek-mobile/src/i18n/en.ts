@@ -108,6 +108,20 @@ const en: Translation = {
     outsideBody:
       'You are {{distance}} meters outside the {{office}} area.\n\nYou can only check in from inside the office (within {{max}} meters). Employees cannot check in from home or other locations.',
     checkLocationAgain: 'Check Location Again',
+    impreciseTitle: 'Location Not Precise Enough',
+    preciseOffBody:
+      'Check-in needs a precise location, but SapaKerja is only allowed to use an approximate one. Turn on “Precise Location” and try again.',
+    weakSignalBody:
+      'The location signal is too weak (accuracy about {{accuracy}} m, maximum {{max}} m). Move to an open area or near a window, make sure GPS is in high-accuracy mode, then check again.',
+    enablePrecise: 'Turn On Precise Location',
+    mockedTitle: 'Fake Location Detected',
+    mockedBody: 'This device is using a mock location. Turn off the fake-location app and try again.',
+    unavailableTitle: 'Location Not Available',
+    unavailableBody:
+      'The device location could not be read. Make sure GPS is on and location permission is allowed, then try again.',
+    pillImprecise: 'Location not precise',
+    pillMocked: 'Fake location detected',
+    pillUnavailable: 'Location unavailable',
     captureFailedTitle: 'Could Not Take Photo',
     captureFailedBody: 'Something went wrong while using the camera.',
     submitFailedTitle: 'Could Not Submit Attendance',
@@ -128,6 +142,7 @@ const en: Translation = {
     outsideOffice: 'Outside the Office ({{distance}}m / Max {{max}}m)',
     offlineMode: 'Offline Mode (Saved on Device)',
     capturing: 'Capturing…',
+    checkingLocation: 'Checking location…',
     shutterLabel: 'Check-in button',
   },
 
@@ -239,6 +254,11 @@ const en: Translation = {
       'Your profile photo is saved on this phone and will sync to the Web Dashboard automatically once the server is reachable.',
     photoFailedTitle: 'Could Not Select Photo',
     photoFailedBody: 'Something went wrong while opening the photo library.',
+  },
+
+  notification: {
+    channelAlarm: 'Alarm',
+    channelInfo: 'Info',
   },
 
   appInfo: {

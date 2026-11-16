@@ -31,9 +31,22 @@ import {
 } from '@/lib/permissions';
 import { statusLabel } from '@/lib/attendance-format';
 import { colors, Text } from '@/lib/theme';
-import { locationStore, OfficeConfig } from '@/lib/location-store';
+import {
+  DEFAULT_OFFICE,
+  locationStore,
+  MAX_ACCURACY_METERS,
+  type LocationProblem,
+  OfficeConfig,
+} from '@/lib/location-store';
 import { syncStore } from '@/lib/sync-store';
 import { attendanceApi } from '@/lib/api';
+
+// Teks pill status lokasi saat lokasi tidak bisa dipakai absen.
+const LOCATION_PILL_KEY = {
+  imprecise: 'attendance.pillImprecise',
+  mocked: 'attendance.pillMocked',
+  unavailable: 'attendance.pillUnavailable',
+} as const;
 
 // Format jam realtime digital 24 jam (HH:mm:ss WIB)
 function formatTime24(date: Date): string {
@@ -486,6 +499,7 @@ export default function AttendanceScreen() {
   const videoRef = useRef<any>(null);
   const [cameraStream, setCameraStream] = useState<any>(null);
   const [isCapturing, setIsCapturing] = useState<boolean>(false);
+  const [isCheckingLocation, setIsCheckingLocation] = useState<boolean>(false);
 
   // State untuk alur Konfirmasi Foto Presensi (Sesuai Desain Figma)
   const [capturedPhotoUri, setCapturedPhotoUri] = useState<string | null>(null);
@@ -502,7 +516,17 @@ export default function AttendanceScreen() {
   const [isInsideOffice, setIsInsideOffice] = useState<boolean>(true);
   const [officeDistance, setOfficeDistance] = useState<number>(0);
   const [officeConfig, setOfficeConfig] = useState<OfficeConfig | null>(null);
+  const [locationProblem, setLocationProblem] = useState<LocationProblem | null>(null);
+  const [currentCoords, setCurrentCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const [isOnline, setIsOnline] = useState<boolean>(true);
+  const geofenceText = locationProblem
+    ? t(LOCATION_PILL_KEY[locationProblem])
+    : isInsideOffice
+      ? t('attendance.insideOffice', { distance: officeDistance })
+      : t('attendance.outsideOffice', {
+          distance: officeDistance,
+          max: officeConfig?.radiusMeters ?? DEFAULT_OFFICE.radiusMeters,
+        });
 
   // Pantau status koneksi internet (online / offline)
   useEffect(() => {
@@ -526,9 +550,47 @@ export default function AttendanceScreen() {
       setIsInsideOffice(res.isInside);
       setOfficeDistance(res.distanceMeters);
       setOfficeConfig(res.office);
+      setLocationProblem(res.problem ?? null);
+      setCurrentCoords(res.currentCoords);
       return res;
     } catch {
       return null;
+    }
+  }
+
+  // Izin lokasi sudah diberikan tetapi hanya "perkiraan": minta peningkatan lewat dialog sistem
+  // (iOS: akurasi penuh sementara; Android: ACCESS_FINE_LOCATION). Bila tetap perkiraan, buka Pengaturan.
+  async function enablePreciseLocation() {
+    try {
+      await locationPermission.request();
+    } catch {
+      // Lanjut ke pengecekan ulang.
+    }
+    const res = await checkGeofence();
+    if (res?.problem === 'imprecise' && res.accuracyMeters == null) {
+      void Linking.openSettings();
+    }
+  }
+
+  // Lokasi tidak bisa dipakai untuk absen (kurang presisi / palsu / belum terbaca): jelaskan dan beri jalan keluar.
+  function showLocationProblem(problem: LocationProblem, accuracyMeters?: number) {
+    const again = { text: t('attendance.checkLocationAgain'), onPress: () => void checkGeofence() };
+    const close = { text: t('common.close'), style: 'cancel' as const };
+    if (problem === 'imprecise') {
+      const weakSignal = accuracyMeters != null;
+      Alert.alert(
+        t('attendance.impreciseTitle'),
+        weakSignal
+          ? t('attendance.weakSignalBody', { accuracy: accuracyMeters, max: MAX_ACCURACY_METERS })
+          : t('attendance.preciseOffBody'),
+        weakSignal
+          ? [again, close]
+          : [{ text: t('attendance.enablePrecise'), onPress: () => void enablePreciseLocation() }, again, close],
+      );
+    } else if (problem === 'mocked') {
+      Alert.alert(t('attendance.mockedTitle'), t('attendance.mockedBody'), [again, close]);
+    } else {
+      Alert.alert(t('attendance.unavailableTitle'), t('attendance.unavailableBody'), [again, close]);
     }
   }
 
@@ -646,6 +708,7 @@ export default function AttendanceScreen() {
 
   // Aksi Menjepret Foto Presensi (Shutter Button)
   async function handleCapturePhoto() {
+    if (isCapturing) return; // cegah tekan ganda saat pengecekan lokasi/foto berjalan
     if (currentUser?.todayCheckIn) {
       Alert.alert(
         t('attendance.alreadyTitle'),
@@ -668,9 +731,20 @@ export default function AttendanceScreen() {
       return;
     }
 
+    // Loading tampil SEGERA: membaca lokasi bisa memakan beberapa detik (GPS iOS) dan tanpa ini layar tampak diam.
+    setIsCapturing(true);
+    setIsCheckingLocation(true);
+
     // Validasi Geofence: Karyawan HARUS berada di dalam kantor Piposmart (Anti-Curang)
     const locRes = await checkGeofence();
-    if (locRes && !locRes.isInside) {
+    setIsCheckingLocation(false);
+    if (!locRes || locRes.problem) {
+      setIsCapturing(false);
+      showLocationProblem(locRes?.problem ?? 'unavailable', locRes?.accuracyMeters);
+      return;
+    }
+    if (!locRes.isInside) {
+      setIsCapturing(false);
       Alert.alert(
         t('attendance.outsideTitle'),
         t('attendance.outsideBody', {
@@ -685,8 +759,6 @@ export default function AttendanceScreen() {
       );
       return;
     }
-
-    setIsCapturing(true);
 
     // Efek shutter flash kamera instan (respon visual langsung saat tombol ditekan)
     Animated.sequence([
@@ -801,8 +873,8 @@ export default function AttendanceScreen() {
             clockInTime: `${capturedTime} WIB`,
             isLate: capturedIsLate,
             photo: photoToSave,
-            latitude: officeConfig?.latitude ?? 1.105925,
-            longitude: officeConfig?.longitude ?? 104.075342,
+            latitude: currentCoords?.latitude ?? officeConfig?.latitude ?? DEFAULT_OFFICE.latitude,
+            longitude: currentCoords?.longitude ?? officeConfig?.longitude ?? DEFAULT_OFFICE.longitude,
             distanceMeters: Math.round(officeDistance),
             officeName: officeConfig?.name ?? 'Kantor Piposmart',
             isOfflineSync: false,
@@ -818,8 +890,8 @@ export default function AttendanceScreen() {
               capturedTime,
               isLate: capturedIsLate,
               photoUri: photoToSave,
-              latitude: officeConfig?.latitude ?? 1.105925,
-              longitude: officeConfig?.longitude ?? 104.075342,
+              latitude: currentCoords?.latitude ?? officeConfig?.latitude ?? DEFAULT_OFFICE.latitude,
+              longitude: currentCoords?.longitude ?? officeConfig?.longitude ?? DEFAULT_OFFICE.longitude,
             });
           }
         }
@@ -829,8 +901,8 @@ export default function AttendanceScreen() {
           capturedTime,
           isLate: capturedIsLate,
           photoUri: photoToSave,
-          latitude: officeConfig?.latitude ?? 1.105925,
-          longitude: officeConfig?.longitude ?? 104.075342,
+          latitude: currentCoords?.latitude ?? officeConfig?.latitude ?? DEFAULT_OFFICE.latitude,
+          longitude: currentCoords?.longitude ?? officeConfig?.longitude ?? DEFAULT_OFFICE.longitude,
         });
       }
 
@@ -1096,12 +1168,7 @@ export default function AttendanceScreen() {
                   isInsideOffice ? styles.geofenceTextInside : styles.geofenceTextOutside,
                 ]}
               >
-                {isInsideOffice
-                  ? t('attendance.insideOffice', { distance: officeDistance })
-                  : t('attendance.outsideOffice', {
-                      distance: officeDistance,
-                      max: officeConfig?.radiusMeters ?? 100,
-                    })}
+                {geofenceText}
               </Text>
             </View>
 
@@ -1160,7 +1227,11 @@ export default function AttendanceScreen() {
             )}
           </Pressable>
           <Text style={[styles.fabLabel, { color: '#05564E', fontWeight: '700' }]}>
-            {isCapturing ? t('attendance.capturing') : t('common.tabs.attendance')}
+            {isCapturing
+              ? isCheckingLocation
+                ? t('attendance.checkingLocation')
+                : t('attendance.capturing')
+              : t('common.tabs.attendance')}
           </Text>
         </View>
 

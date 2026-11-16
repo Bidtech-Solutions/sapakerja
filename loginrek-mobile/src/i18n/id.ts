@@ -110,6 +110,20 @@ const id = {
     outsideBody:
       'Kamu terdeteksi berada di luar area {{office}} sejauh {{distance}} meter.\n\nPresensi hanya dapat dilakukan jika kamu sudah berada di dalam kantor (maksimal {{max}} meter). Karyawan tidak dapat melakukan absensi dari rumah atau luar kantor.',
     checkLocationAgain: 'Cek Lokasi Lagi',
+    impreciseTitle: 'Lokasi Kurang Presisi',
+    preciseOffBody:
+      'Presensi membutuhkan lokasi yang presisi, sedangkan SapaKerja baru diizinkan memakai lokasi perkiraan. Aktifkan “Lokasi Presisi” lalu coba lagi.',
+    weakSignalBody:
+      'Sinyal lokasi terlalu lemah (akurasi sekitar {{accuracy}} m, maksimal {{max}} m). Pindah ke area terbuka atau dekat jendela, pastikan GPS dalam mode akurasi tinggi, lalu cek lagi.',
+    enablePrecise: 'Aktifkan Lokasi Presisi',
+    mockedTitle: 'Lokasi Palsu Terdeteksi',
+    mockedBody: 'Perangkat ini memakai lokasi tiruan (mock location). Matikan aplikasi lokasi palsu lalu coba lagi.',
+    unavailableTitle: 'Lokasi Belum Terbaca',
+    unavailableBody:
+      'Lokasi perangkat belum bisa dibaca. Pastikan GPS menyala dan izin lokasi aktif, lalu coba lagi.',
+    pillImprecise: 'Lokasi kurang presisi',
+    pillMocked: 'Lokasi palsu terdeteksi',
+    pillUnavailable: 'Lokasi belum terbaca',
     captureFailedTitle: 'Gagal Mengambil Foto',
     captureFailedBody: 'Terjadi kesalahan saat memproses kamera.',
     submitFailedTitle: 'Gagal Mengirim Presensi',
@@ -130,6 +144,7 @@ const id = {
     outsideOffice: 'Di Luar Kantor ({{distance}}m / Maks {{max}}m)',
     offlineMode: 'Mode Offline (Tersimpan di HP)',
     capturing: 'Menjepret…',
+    checkingLocation: 'Memeriksa lokasi…',
     shutterLabel: 'Tombol Presensi',
   },
 
@@ -243,6 +258,11 @@ const id = {
       'Foto profil tersimpan di HP dan akan otomatis tersinkron ke Web Dashboard saat server terhubung.',
     photoFailedTitle: 'Gagal Mengambil Foto',
     photoFailedBody: 'Terjadi kesalahan saat membuka galeri foto.',
+  },
+
+  notification: {
+    channelAlarm: 'Alarm',
+    channelInfo: 'Info',
   },
 
   appInfo: {

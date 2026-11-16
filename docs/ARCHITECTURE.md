@@ -147,17 +147,17 @@ Untuk dev lokal, isi `EXPO_PUBLIC_API_URL` dengan alamat API yang terjangkau per
 cd loginrek-mobile
 npx eas-cli@latest build --profile preview --platform android
 ```
-Rilis iOS butuh Apple Developer Program. Build binary (EAS) masih manual; update JavaScript-nya dirilis otomatis lewat
-OTA (bagian berikut). <!-- DIUBAH (OTA): kalimat "CI mobile (EAS) belum ada" diganti. -->
+Rilis iOS butuh Apple Developer Program. Build binary (EAS) dijalankan otomatis oleh CI saat ada perubahan native (lihat "Build native otomatis" di bagian berikut); update JavaScript-nya dirilis otomatis lewat
+OTA. <!-- DIUBAH (OTA): kalimat "CI mobile (EAS) belum ada" diganti. -->
 
 ### Update OTA (expo-updates, server sendiri)
 <!-- DIUBAH (OTA): subbagian baru. Menggantikan server update EAS (u.expo.dev). -->
 
-JS + aset dari JS bisa diperbarui tanpa build baru. Perubahan native tidak bisa dan **ditolak otomatis** oleh CI.
+JS + aset dari JS bisa diperbarui tanpa build baru. Perubahan native tidak bisa lewat OTA: CI **melewati OTA** dan menjalankan build native otomatis (lihat "Build native otomatis").
 
 ```
-commit di loginrek-mobile/ (bukan .md) ──► job `changes` (mobile=true)
-        └─► job `publish-ota`: env dari eas.json → cek native → expo export → manifest + tanda tangan
+commit di loginrek-mobile/ (bukan .md) ──► job `changes` (mobile=true) ──► job `native-check` (harus `same`)
+        └─► job `publish-ota`: env dari eas.json → expo export → manifest + tanda tangan
               → tar → SCP ke VPS → ekstrak ke $DEPLOY_PATH/updates → pindahkan latest.json (terakhir)
 HP ──GET /updates/manifest──► Traefik ──► lr-backend (internal/updates, baca /data/updates) ──► manifest + expo-signature
 HP ──GET /updates/files/…──► bundle & aset (immutable)
@@ -165,8 +165,9 @@ HP ──GET /updates/files/…──► bundle & aset (immutable)
 
 - **Pemisahan job** (`.github/workflows/loginrek.yml`): `changes` membandingkan push. `server` (backend, dashboard,
   `docker-compose.prod.yml`, `.env.example`, workflow) → check/build/package/deploy. `mobile` (`loginrek-mobile/**`, kecuali `.md`)
-  → `publish-ota`. Keduanya paralel dan tidak saling memicu; antrean per job (`deploy-production`, `ota-production`).
-  Manual: Run workflow → `target` = `deploy` atau `ota`.
+  → `native-check`, lalu `publish-ota` (bila `same`) atau jalur build native (bila `changed`/`missing`). Jalur server dan mobile paralel dan tidak
+  saling memicu; antrean per job (`deploy-production`, `ota-production`, `native-build-production`).
+  Manual: Run workflow → `target` = `deploy`, `ota`, atau `native`.
 - **Tata letak di VPS** (`$DEPLOY_PATH`, default `/opt/loginrek`):
 
   | Di VPS | Di container backend | Isi |
@@ -181,7 +182,8 @@ HP ──GET /updates/files/…──► bundle & aset (immutable)
   `UPDATE_SIGNING_KEY` (Environment `production`). Hanya CI yang menandatangani; backend cuma menyajikan `.sig`. Mengganti key/sertifikat = build baru.
 - **Pemeriksaan native**: sidik jari = library native produksi di `node_modules`, `app.json` (tanpa `version`/`extra`), isi berkas yang dirujuk
   config (ikon, splash, ikon/suara notifikasi, `google-services.json`, `GoogleService-Info.plist`, sertifikat) dan `patches/`.
-  Dibandingkan dengan `ota-state/…native.txt`. Beda atau acuan belum ada → job gagal, tidak ada OTA.
+  Dibandingkan dengan `ota-state/…native.txt` oleh job `native-check` (skrip inline di workflow): sama → `same` (OTA); beda → `changed`;
+  acuan belum ada → `missing`. Pada `changed`/`missing` OTA dilewati (bukan gagal) dan build native yang berjalan.
 - **Channel & runtime**: header `expo-channel-name: production` (`app.json`, cocok dengan `eas.json` profil `production`), runtime = `version`
   (`runtimeVersion.policy: appVersion`). Profil `development`/`preview`/`production-internal` punya channel sendiri dan **tidak** menerima OTA ini.
   Nilai `EXPO_PUBLIC_*` diambil dari `eas.json` (`build.production.env`) agar bundle OTA identik dengan build production.
@@ -197,9 +199,24 @@ HP ──GET /updates/files/…──► bundle & aset (immutable)
 
 **Cara rilis** — otomatis saat commit di `loginrek-mobile/` masuk `main`. Pantau di Actions → `loginrek` → `Publish OTA`.
 
-**Setelah `eas build` baru terpasang** (atau `version` naik): jalankan manual Actions → `loginrek` → Run workflow → `target=ota` + centang
-`rebase_native`. Ini menyimpan kondisi native saat ini sebagai acuan baru dan sekaligus merilis update. Sebelum itu, OTA otomatis gagal
-dengan pesan "Belum ada acuan native" (disengaja).
+**Build native otomatis** — saat `native-check` = `changed` atau `missing` pada push ke `main` (atau manual: Run workflow → `target=native`):
+
+1. `bump-version`: `missing` (versi di `app.json` belum pernah dibuild) → dipakai apa adanya. `changed` (versi itu sudah pernah dibuild, native berubah)
+   → patch dinaikkan (mis. 1.0.3 → 1.0.4) di `app.json` + `package.json`, lalu di-commit CI ke `main` (`chore(mobile): versi X.Y.Z [skip build]`).
+   Setelah itu `main` lokal tertinggal satu commit: `git pull` sebelum push berikutnya. Nomor build (`buildNumber`/`versionCode`) diurus counter
+   remote EAS (`appVersionSource: remote` + `autoIncrement`).
+2. `build-android` (ubuntu) dan `build-ios` (macOS) menjalankan `eas build --local` di runner GitHub: tidak memakai kuota build cloud EAS,
+   tetapi memakan menit Actions (macOS lebih mahal pada repo privat).
+3. `submit-android` / `submit-ios`: `eas submit` ke Play track `internal` (draft) dan TestFlight. Release notes, memilih build, dan kirim ke review
+   tetap manual di Play Console / App Store Connect.
+4. `rebase-native`: setelah **kedua** build sukses, acuan native versi itu disimpan di VPS sehingga OTA untuk versi tersebut otomatis boleh.
+   Bila salah satu build gagal, acuan tidak ditulis; run ulang memakai versi yang sama (tidak naik lagi).
+
+Tambahkan `[skip build]` di pesan commit (commit terakhir pada push) untuk melewati build native. Jangan push commit native bertubi-tubi saat build berjalan.
+Prasyarat: secret `EXPO_TOKEN` (Environment `production`); kredensial store tersimpan di EAS (kunci App Store Connect API, service account Google Play);
+variabel repo `ASC_APP_ID` (ID numerik app di App Store Connect). Artefak `.aab`/`.ipa` disimpan 7 hari di run Actions untuk submit manual bila perlu.
+Build tanpa submit: `target=native` dan matikan `submit`. Run manual `target=ota` + `rebase_native` tetap ada untuk memasang acuan secara manual
+(mis. setelah build dari luar CI).
 
 **Rollback** — rilis update **baru** dari commit yang sehat (revert commit lalu push, atau Run workflow dari commit itu). Jangan hanya
 mengembalikan `latest.json` ke ID lama: klien yang sudah mengunduh update baru tidak akan turun ke ID yang lebih lama.

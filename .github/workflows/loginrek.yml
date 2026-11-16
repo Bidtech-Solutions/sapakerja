@@ -10,16 +10,22 @@
 #   changes : deteksi komponen yang berubah pada push: `server` (backend, dashboard, compose,
 #             .env.example, workflow ini) dan `mobile` (loginrek-mobile). Job lain hanya
 #             berjalan bila komponennya berubah.
-#   publish-ota : export bundle loginrek-mobile, CEK perubahan native, buat manifest + tanda
+#   native-check : bandingkan sidik jari native loginrek-mobile dengan acuan di VPS -> same | changed | missing.
+#   publish-ota : (native-check = same) export bundle loginrek-mobile, buat manifest + tanda
 #             tangan code signing, kirim ke VPS -> disajikan backend di /updates/*.
 #             Berjalan OTOMATIS bila loginrek-mobile berubah, PARALEL dengan jalur server.
+#   bump-version, build-android, build-ios, submit-android, submit-ios, rebase-native :
+#             (native-check = changed/missing) naikkan versi patch bila perlu, build eas --local,
+#             submit ke TestFlight + Play internal, lalu simpan acuan native versi baru. Lihat bagian
+#             "BUILD NATIVE" di bawah. Lewati dengan "[skip build]" di pesan commit.
 #
 # Contoh: commit yang hanya mengubah loginrek-mobile -> hanya publish-ota (backend dan
 # dashboard TIDAK dibangun/dideploy ulang). Commit di backend/dashboard -> hanya jalur server.
 #
 # Pemicu manual (workflow_dispatch):
 #   target = deploy (default) : jalur server (check -> build -> package -> deploy)
-#   target = ota              : hanya publish-ota
+#   target = ota              : hanya jalur OTA (native-check + publish-ota)
+#   target = native           : build native + submit (bump-version ... rebase-native); submit=false untuk build saja
 #   rebase_native             : centang SETELAH build eas baru terpasang, untuk menjadikan kondisi
 #                               native saat ini sebagai acuan OTA (lihat job publish-ota)
 #
@@ -61,18 +67,24 @@ on:
       target:
         description: "Apa yang dijalankan"
         type: choice
-        options: [deploy, ota]
+        options: [deploy, ota, native]
         default: deploy
       rebase_native:
         description: "Khusus target=ota: jadikan kondisi native saat ini acuan baru (centang setelah build eas baru terpasang)"
         type: boolean
         default: false
+      submit:
+        description: "Khusus target=native: kirim hasil build ke TestFlight + Play internal (matikan untuk build saja)"
+        type: boolean
+        default: true
 
 # Tidak ada concurrency tingkat workflow: antrean diatur per job (deploy dan publish-ota),
 # supaya run yang hanya mengubah mobile tidak mengantre/membatalkan deploy server, dan sebaliknya.
 
 env:
   REGISTRY: ghcr.io
+  # Versi eas-cli untuk eas build --local / eas submit (tidak ada di devDependencies; dipanggil lewat npx).
+  EAS_CLI_VERSION: "27.2.0"
   # Domain publik production (DNS mengarah ke VPS). API_DOMAIN dibakar ke bundle
   # dashboard saat build sebagai VITE_API_URL.
   DASHBOARD_DOMAIN: sapakerja.com
@@ -105,7 +117,7 @@ jobs:
           server=false
           mobile=false
           if [ "$EVENT" = "workflow_dispatch" ]; then
-            if [ "$TARGET" = "ota" ]; then mobile=true; else server=true; fi
+            if [ "$TARGET" = "ota" ] || [ "$TARGET" = "native" ]; then mobile=true; else server=true; fi
           elif [ -z "$BEFORE" ] || [[ "$BEFORE" =~ ^0+$ ]] || ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
             # push pertama / force-push: acuan tidak ada, anggap semuanya berubah
             server=true; mobile=true
@@ -119,7 +131,7 @@ jobs:
           echo "mobile=$mobile" >> "$GITHUB_OUTPUT"
           echo "### Perubahan terdeteksi" >> "$GITHUB_STEP_SUMMARY"
           echo "- server (backend/dashboard/compose): \`$server\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- mobile (OTA): \`$mobile\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- mobile (OTA / build native): \`$mobile\`" >> "$GITHUB_STEP_SUMMARY"
 
   check-backend:
     name: Backend — vet & build
@@ -362,46 +374,32 @@ jobs:
             echo "Deployed ghcr.io/$GHCR_OWNER/loginrek-{backend,dashboard}:$IMAGE_TAG"
 
   # ---------------------------------------------------------------------------
-  # OTA (expo-updates) ke server sendiri. OTOMATIS saat loginrek-mobile berubah, paralel dengan
-  # jalur server (dan tidak menyentuh backend/dashboard).
-  # Alur: env dari eas.json -> CEK NATIVE (gagal bila perubahan butuh build baru) -> expo export ->
-  #       manifest + tanda tangan (skrip inline) -> tar -> SCP ke VPS -> ekstrak ke
-  #       $DEPLOY_PATH/updates -> pindahkan pointer latest.json.
-  # Backend Go (internal/updates) yang menyajikan hasilnya di /updates/manifest dan /updates/files/*.
-  # Pointer dipindah TERAKHIR agar klien tak pernah melihat update setengah jadi.
-  #
-  # Pemeriksaan native: sidik jari = daftar library native (prod) di node_modules + config app.json
-  # yang memengaruhi binary (tanpa version/extra) + hash berkas yang dirujuk config (ikon, splash,
-  # ikon/suara notifikasi, google-services.json, sertifikat). Dibandingkan dengan acuan di VPS
-  # ($DEPLOY_PATH/ota-state/<channel>/<runtime>.native.txt). Beda => job GAGAL, tidak ada OTA.
-  # Acuan dibuat/diperbarui hanya lewat run manual: target=ota + rebase_native (setelah eas build).
+  # Pemeriksaan native: apakah commit ini butuh build binary baru? Menentukan jalur mobile:
+  #   same    : sidik jari native sama dengan acuan versi (runtime) ini  -> publish-ota (OTA)
+  #   changed : versi ini sudah pernah dibuild, tetapi native berubah    -> bump-version (naik patch) + build-native
+  #   missing : versi ini belum pernah dibuild (belum ada acuan)         -> build-native dengan versi ini apa adanya
+  # Sidik jari: skrip inline di langkah "Bandingkan dengan acuan" (library native prod, config app.json tanpa version/extra,
+  # isi berkas yang dirujuk config, patches/). Acuan: $DEPLOY_PATH/ota-state/<channel>/<runtime>.native.txt di VPS,
+  # ditulis oleh rebase-native (setelah build sukses) atau run manual target=ota + rebase_native.
   # ---------------------------------------------------------------------------
-  publish-ota:
-    name: Publish OTA (loginrek-mobile)
+  native-check:
+    name: Cek perubahan native
     needs: [changes]
     if: needs.changes.outputs.mobile == 'true'
     runs-on: ubuntu-latest
     environment: production
-    # Antrean khusus OTA: dua rilis tidak berjalan bersamaan, tapi tidak menunggu deploy server.
-    concurrency:
-      group: ota-production
-      cancel-in-progress: false
     permissions:
       contents: read
     defaults:
       run:
         working-directory: loginrek-mobile
     env:
-      # Harus sama dengan channel yang dipakai build production di eas.json / app.json.
+      # Harus sama dengan channel build production di eas.json / app.json.
       CHANNEL: production
-      EAS_PROFILE: production
-      # Variabel EXPO_PUBLIC_* yang BOLEH kosong (dipakai di kode tapi punya nilai bawaan).
-      EXPO_PUBLIC_OPTIONAL: "EXPO_PUBLIC_API_PORT"
       DEPLOY_PATH: ${{ secrets.VPS_DEPLOY_PATH || '/opt/loginrek' }}
-      OTA_DIR: ${{ secrets.VPS_DEPLOY_PATH || '/opt/loginrek' }}/updates
-      REBASE: ${{ github.event_name == 'workflow_dispatch' && inputs.rebase_native && 'true' || 'false' }}
-      # Lewati unggah sourcemap Sentry (tidak ada SENTRY_AUTH_TOKEN di CI ini)
-      SENTRY_DISABLE_AUTO_UPLOAD: "true"
+    outputs:
+      state: ${{ steps.compare.outputs.state }}
+      runtime: ${{ steps.compare.outputs.runtime }}
     steps:
       - uses: actions/checkout@v7
 
@@ -411,55 +409,10 @@ jobs:
           cache: npm
           cache-dependency-path: loginrek-mobile/package-lock.json
 
-      - name: Validasi channel
-        run: |
-          [[ "$CHANNEL" =~ ^[A-Za-z0-9._-]{1,64}$ ]] || { echo "::error::channel tidak valid: $CHANNEL"; exit 1; }
-
       - run: npm ci --no-audit --no-fund
 
-      # Nilai EXPO_PUBLIC_* DIBAKAR ke bundle saat export, jadi harus sama dengan build production.
-      # Sumbernya eas.json (build.<profil>.env, termasuk `extends`), tidak ditulis ulang di sini.
-      - name: Muat env dari eas.json
-        run: |
-          set -euo pipefail
-          [ -f eas.json ] || { echo "::error::eas.json tidak ada"; exit 1; }
-          jq -r --arg p "$EAS_PROFILE" '
-            def res($n): (.build[$n] // {}) as $b
-              | (if $b.extends then res($b.extends) else {} end) * ($b.env // {});
-            res($p) | to_entries[]
-            | select((.value | type) == "string" and (.value | contains("\n") | not))
-            | [.key, .value] | @tsv' eas.json > "$RUNNER_TEMP/eas-env.tsv"
-          loaded=""
-          while IFS=$'\t' read -r k v; do
-            if [[ "$k" =~ ^(EXPO_PUBLIC_[A-Z0-9_]+|APP_ENV)$ ]]; then
-              echo "$k=$v" >> "$GITHUB_ENV"
-              loaded+="$k "
-            else
-              echo "Dilewati (bukan EXPO_PUBLIC_*/APP_ENV): $k"
-            fi
-          done < "$RUNNER_TEMP/eas-env.tsv"
-          echo "Env dimuat dari eas.json ($EAS_PROFILE): ${loaded:-tidak ada}"
-
-      # Gagalkan bila ada EXPO_PUBLIC_* yang dipakai di kode tapi tidak punya nilai (bundle rusak).
-      - name: Cek env publik
-        run: |
-          set -euo pipefail
-          names=$( { grep -rhoE 'EXPO_PUBLIC_[A-Z0-9_]+' src app.json app.config.* 2>/dev/null || true; } | sort -u )
-          missing=0
-          for n in $names; do
-            [ -n "${!n:-}" ] && continue
-            if [[ " $EXPO_PUBLIC_OPTIONAL " == *" $n "* ]]; then
-              echo "Opsional, dilewati: $n"
-            else
-              echo "::error::$n dipakai di kode tapi tidak ada di eas.json ($EAS_PROFILE).env (atau tambahkan ke EXPO_PUBLIC_OPTIONAL bila memang opsional)."
-              missing=1
-            fi
-          done
-          [ "$missing" = 0 ] || exit 1
-          echo "Variabel EXPO_PUBLIC_* terdeteksi: ${names:-tidak ada}"
-
-      - name: Cek perubahan native
-        id: native
+      - name: Bandingkan dengan acuan
+        id: compare
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_PORT: ${{ secrets.VPS_PORT || '22' }}
@@ -467,10 +420,7 @@ jobs:
           VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
         run: |
           set -euo pipefail
-
-          # Config publik dipakai juga oleh langkah manifest.
           npx expo config --type public --json > "$RUNNER_TEMP/expoConfig.json"
-
           cat > "$RUNNER_TEMP/native-fingerprint.mjs" <<'NODE'
           import { createHash } from 'node:crypto';
           import { existsSync, readFileSync, readdirSync, statSync, writeFileSync, appendFileSync } from 'node:fs';
@@ -563,11 +513,6 @@ jobs:
             -o UserKnownHostsFile="$RUNNER_TEMP/known_hosts" "$VPS_USER@$VPS_HOST" \
             "if [ -f '$base' ]; then cat '$base'; else echo __MISSING__; fi" > "$RUNNER_TEMP/native.base"
 
-          {
-            echo "### Pemeriksaan native"
-            echo "- channel/runtime: \`$CHANNEL / $runtime\`"
-          } >> "$GITHUB_STEP_SUMMARY"
-
           if [ "$(head -n1 "$RUNNER_TEMP/native.base")" = "__MISSING__" ]; then
             state=missing
           elif diff -u "$RUNNER_TEMP/native.base" "$RUNNER_TEMP/native.txt" > "$RUNNER_TEMP/native.diff"; then
@@ -575,25 +520,147 @@ jobs:
           else
             state=changed
           fi
+          echo "state=$state" >> "$GITHUB_OUTPUT"
 
-          if [ "$REBASE" = "true" ]; then
-            echo "- hasil: rebase_native — kondisi native ini menjadi acuan baru (status sebelumnya: $state)" >> "$GITHUB_STEP_SUMMARY"
-            echo "rebase: status sebelumnya $state; acuan akan diperbarui setelah publish."
-          else
+          {
+            echo "### Pemeriksaan native"
+            echo "- channel/runtime: \`$CHANNEL / $runtime\`"
             case "$state" in
-              same)
-                echo "- hasil: tidak ada perubahan native, OTA boleh" >> "$GITHUB_STEP_SUMMARY" ;;
-              missing)
-                echo "- hasil: DITOLAK, belum ada acuan native" >> "$GITHUB_STEP_SUMMARY"
-                echo "::error::Belum ada acuan native untuk runtime $runtime. Setelah build eas versi ini terpasang, jalankan manual: Run workflow > target=ota + centang rebase_native."
-                exit 1 ;;
-              changed)
-                { echo "- hasil: DITOLAK, perubahan native terdeteksi"; echo '```diff'; cat "$RUNNER_TEMP/native.diff"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
-                cat "$RUNNER_TEMP/native.diff"
-                echo "::error::Perubahan native terdeteksi (library native / config app / ikon / suara / google-services). Tidak bisa lewat OTA: naikkan version di app.json, jalankan eas build, pasang, lalu jalankan rebase_native."
-                exit 1 ;;
+              same)    echo "- hasil: \`same\` — tidak ada perubahan native, jalur OTA" ;;
+              missing) echo "- hasil: \`missing\` — versi $runtime belum pernah dibuild, jalur build native (versi ini apa adanya)" ;;
+              changed) echo "- hasil: \`changed\` — native berubah pada versi yang sudah dibuild, jalur build native (versi naik patch)"
+                       echo '```diff'; cat "$RUNNER_TEMP/native.diff"; echo '```' ;;
             esac
-          fi
+            if [ "$state" != "same" ]; then
+              echo "- OTA dilewati; build native hanya jalan bila commit bukan \`[skip build]\` dan berada di main."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # Sidik jari dibagikan ke job lain (acuan baru disimpan dari berkas ini; tidak dihitung ulang).
+      - uses: actions/upload-artifact@v7
+        with:
+          name: native-fingerprint
+          path: ${{ runner.temp }}/native.txt
+          if-no-files-found: error
+          retention-days: 2
+
+  # ---------------------------------------------------------------------------
+  # OTA (expo-updates) ke server sendiri. OTOMATIS saat loginrek-mobile berubah, paralel dengan
+  # jalur server (dan tidak menyentuh backend/dashboard).
+  # Alur: (native-check = same) env dari eas.json -> expo export ->
+  #       manifest + tanda tangan (skrip inline) -> tar -> SCP ke VPS -> ekstrak ke
+  #       $DEPLOY_PATH/updates -> pindahkan pointer latest.json.
+  # Backend Go (internal/updates) yang menyajikan hasilnya di /updates/manifest dan /updates/files/*.
+  # Pointer dipindah TERAKHIR agar klien tak pernah melihat update setengah jadi.
+  #
+  # Boleh-tidaknya OTA diputuskan job native-check (harus `same`, atau run manual dengan rebase_native).
+  # Perubahan native TIDAK lagi membuat job ini merah: job ini dilewati dan jalur build-native yang berjalan.
+  # Acuan native dibuat/diperbarui oleh rebase-native (setelah build sukses) atau run manual: target=ota + rebase_native.
+  # ---------------------------------------------------------------------------
+  publish-ota:
+    name: Publish OTA (loginrek-mobile)
+    needs: [changes, native-check]
+    if: >-
+      needs.changes.outputs.mobile == 'true' &&
+      !(github.event_name == 'workflow_dispatch' && inputs.target == 'native') &&
+      (needs.native-check.outputs.state == 'same' ||
+       (github.event_name == 'workflow_dispatch' && inputs.rebase_native))
+    runs-on: ubuntu-latest
+    environment: production
+    # Antrean khusus OTA: dua rilis tidak berjalan bersamaan, tapi tidak menunggu deploy server.
+    concurrency:
+      group: ota-production
+      cancel-in-progress: false
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: loginrek-mobile
+    env:
+      # Harus sama dengan channel yang dipakai build production di eas.json / app.json.
+      CHANNEL: production
+      EAS_PROFILE: production
+      # Variabel EXPO_PUBLIC_* yang BOLEH kosong (dipakai di kode tapi punya nilai bawaan).
+      EXPO_PUBLIC_OPTIONAL: "EXPO_PUBLIC_API_PORT"
+      DEPLOY_PATH: ${{ secrets.VPS_DEPLOY_PATH || '/opt/loginrek' }}
+      OTA_DIR: ${{ secrets.VPS_DEPLOY_PATH || '/opt/loginrek' }}/updates
+      REBASE: ${{ github.event_name == 'workflow_dispatch' && inputs.rebase_native && 'true' || 'false' }}
+      # Lewati unggah sourcemap Sentry (tidak ada SENTRY_AUTH_TOKEN di CI ini)
+      SENTRY_DISABLE_AUTO_UPLOAD: "true"
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: loginrek-mobile/package-lock.json
+
+      - name: Validasi channel
+        run: |
+          [[ "$CHANNEL" =~ ^[A-Za-z0-9._-]{1,64}$ ]] || { echo "::error::channel tidak valid: $CHANNEL"; exit 1; }
+
+      - run: npm ci --no-audit --no-fund
+
+      # Nilai EXPO_PUBLIC_* DIBAKAR ke bundle saat export, jadi harus sama dengan build production.
+      # Sumbernya eas.json (build.<profil>.env, termasuk `extends`), tidak ditulis ulang di sini.
+      - name: Muat env dari eas.json
+        run: |
+          set -euo pipefail
+          [ -f eas.json ] || { echo "::error::eas.json tidak ada"; exit 1; }
+          jq -r --arg p "$EAS_PROFILE" '
+            def res($n): (.build[$n] // {}) as $b
+              | (if $b.extends then res($b.extends) else {} end) * ($b.env // {});
+            res($p) | to_entries[]
+            | select((.value | type) == "string" and (.value | contains("\n") | not))
+            | [.key, .value] | @tsv' eas.json > "$RUNNER_TEMP/eas-env.tsv"
+          loaded=""
+          while IFS=$'\t' read -r k v; do
+            if [[ "$k" =~ ^(EXPO_PUBLIC_[A-Z0-9_]+|APP_ENV)$ ]]; then
+              echo "$k=$v" >> "$GITHUB_ENV"
+              loaded+="$k "
+            else
+              echo "Dilewati (bukan EXPO_PUBLIC_*/APP_ENV): $k"
+            fi
+          done < "$RUNNER_TEMP/eas-env.tsv"
+          echo "Env dimuat dari eas.json ($EAS_PROFILE): ${loaded:-tidak ada}"
+
+      # Gagalkan bila ada EXPO_PUBLIC_* yang dipakai di kode tapi tidak punya nilai (bundle rusak).
+      - name: Cek env publik
+        run: |
+          set -euo pipefail
+          names=$( { grep -rhoE 'EXPO_PUBLIC_[A-Z0-9_]+' src app.json app.config.* 2>/dev/null || true; } | sort -u )
+          missing=0
+          for n in $names; do
+            [ -n "${!n:-}" ] && continue
+            if [[ " $EXPO_PUBLIC_OPTIONAL " == *" $n "* ]]; then
+              echo "Opsional, dilewati: $n"
+            else
+              echo "::error::$n dipakai di kode tapi tidak ada di eas.json ($EAS_PROFILE).env (atau tambahkan ke EXPO_PUBLIC_OPTIONAL bila memang opsional)."
+              missing=1
+            fi
+          done
+          [ "$missing" = 0 ] || exit 1
+          echo "Variabel EXPO_PUBLIC_* terdeteksi: ${names:-tidak ada}"
+
+      # Config publik dipakai langkah manifest. Keputusan "boleh OTA atau tidak" ada di job native-check (needs).
+      - name: Config publik
+        run: |
+          set -euo pipefail
+          npx expo config --type public --json > "$RUNNER_TEMP/expoConfig.json"
+          {
+            echo "### Pemeriksaan native"
+            echo "- status (job native-check): \`${{ needs.native-check.outputs.state }}\`"
+            if [ "$REBASE" = "true" ]; then echo "- rebase_native: kondisi native ini menjadi acuan baru setelah publish"; fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # Hanya saat rebase_native: sidik jari native dari job native-check, untuk disimpan sebagai acuan.
+      - name: Ambil sidik jari native
+        if: env.REBASE == 'true'
+        uses: actions/download-artifact@v8
+        with:
+          name: native-fingerprint
+          path: ${{ runner.temp }}
 
       - name: Export bundle
         run: npx expo export --platform ios --platform android
@@ -604,7 +671,7 @@ jobs:
           BASE_URL: https://${{ env.API_DOMAIN }}/updates/files
           UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
           KEY_ID: main
-          GUARD_RUNTIME: ${{ steps.native.outputs.runtime }}
+          GUARD_RUNTIME: ${{ needs.native-check.outputs.runtime }}
         run: |
           set -euo pipefail
           cp "$RUNNER_TEMP/expoConfig.json" dist/expoConfig.json
@@ -693,7 +760,7 @@ jobs:
               runtimeVersion,
               launchAsset,
               assets,
-              metadata: { publishId }, // dibaca layar Profil mobile (src/lib/app-info.ts)
+              metadata: { publishId }, // dibaca layar Profil mobile (src/app/(app)/profile.tsx)
               extra: { expoClient: expoConfig },
             };
 
@@ -788,7 +855,7 @@ jobs:
           VPS_PORT: ${{ secrets.VPS_PORT || '22' }}
           VPS_USER: ${{ secrets.VPS_USER || 'root' }}
           VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
-          RUNTIME: ${{ steps.native.outputs.runtime }}
+          RUNTIME: ${{ needs.native-check.outputs.runtime }}
         run: |
           set -euo pipefail
           key="$RUNNER_TEMP/vps_key"
@@ -801,3 +868,290 @@ jobs:
             < "$RUNNER_TEMP/native.txt"
           rm -f "$key"
           echo "Acuan native untuk $CHANNEL/$RUNTIME diperbarui."
+
+  # ===========================================================================
+  # BUILD NATIVE otomatis (eas build --local di runner GitHub) + submit ke store.
+  # Jalan bila native-check = changed/missing pada push ke main (commit tanpa "[skip build]"),
+  # atau manual: Run workflow > target=native.
+  #   bump-version  : changed -> naikkan patch (app.json + package.json), commit balik ke main; missing -> versi apa adanya
+  #   build-android : eas build --local (ubuntu)  -> artefak .aab
+  #   build-ios     : eas build --local (macOS)   -> artefak .ipa
+  #   submit-*      : eas submit -> TestFlight / Play track internal (draft). Rilis ke pengguna tetap manual.
+  #   rebase-native : setelah KEDUA build sukses, simpan acuan native versi ini di VPS (OTA berikutnya boleh jalan)
+  # Nomor build (buildNumber/versionCode) diurus counter remote EAS (eas.json: appVersionSource remote + autoIncrement).
+  # Secret/prasyarat: EXPO_TOKEN (Environment production); kredensial store (App Store Connect API key, Google Play
+  # service account) tersimpan di EAS; variabel repo ASC_APP_ID (ID numerik app di App Store Connect).
+  # Jangan push commit native bertubi-tubi saat build berjalan: acuan baru ditulis setelah build selesai.
+  # ===========================================================================
+  bump-version:
+    name: Tentukan versi build native
+    needs: [changes, native-check]
+    if: >-
+      needs.changes.outputs.mobile == 'true' && github.ref == 'refs/heads/main' &&
+      ((github.event_name == 'workflow_dispatch' && inputs.target == 'native') ||
+       (github.event_name == 'push' && needs.native-check.outputs.state != 'same' &&
+        !contains(github.event.head_commit.message, '[skip build]')))
+    runs-on: ubuntu-latest
+    # Menulis commit kenaikan versi ke main (GITHUB_TOKEN tidak memicu run workflow baru, jadi tidak loop).
+    permissions:
+      contents: write
+    concurrency:
+      group: native-build-production
+      cancel-in-progress: false
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+      sha: ${{ steps.ver.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Naikkan versi bila perlu
+        id: ver
+        env:
+          STATE: ${{ needs.native-check.outputs.state }}
+          RUNTIME: ${{ needs.native-check.outputs.runtime }}
+        run: |
+          set -euo pipefail
+          if [ "$STATE" = "changed" ]; then
+            # Sidik jari yang diperiksa native-check harus untuk commit yang sama dengan yang dibuild
+            # (acuan baru disimpan dari sidik jari itu), jadi main tidak boleh sudah maju.
+            git fetch origin main
+            [ "$(git rev-parse origin/main)" = "$GITHUB_SHA" ] || { echo "::error::main sudah maju sejak commit pemicu; jalankan ulang workflow dari commit terbaru."; exit 1; }
+            cur=$(grep -m1 -oE '"version"[[:space:]]*:[[:space:]]*"[0-9]+\.[0-9]+\.[0-9]+"' loginrek-mobile/app.json | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
+            [ "$cur" = "$RUNTIME" ] || { echo "::error::versi di app.json ($cur) != runtime hasil native-check ($RUNTIME)"; exit 1; }
+            IFS=. read -r major minor patch <<< "$cur"
+            version="$major.$minor.$((patch + 1))"
+            # Hanya baris "version" pertama yang diganti (format dan EOL berkas tetap).
+            sed -i -E "0,/(\"version\"[[:space:]]*:[[:space:]]*\")[0-9]+\.[0-9]+\.[0-9]+\"/s//\1$version\"/" loginrek-mobile/app.json loginrek-mobile/package.json
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add loginrek-mobile/app.json loginrek-mobile/package.json
+            git commit -m "chore(mobile): versi $version [skip build]"
+            git push origin HEAD:main
+            echo "version=$version" >> "$GITHUB_OUTPUT"
+            echo "- versi dinaikkan ke \`$version\` (commit $(git rev-parse --short HEAD) di main)" >> "$GITHUB_STEP_SUMMARY"
+          else
+            version="$RUNTIME"
+            echo "version=$version" >> "$GITHUB_OUTPUT"
+            echo "- versi \`$version\` dipakai apa adanya (status native: $STATE)" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+  build-android:
+    name: Build Android (eas build --local)
+    needs: [bump-version]
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: loginrek-mobile
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.bump-version.outputs.sha }}
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: loginrek-mobile/package-lock.json
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Cek EXPO_TOKEN
+        run: '[ -n "$EXPO_TOKEN" ] || { echo "::error::Secret EXPO_TOKEN belum diisi (Environment production)."; exit 1; }'
+
+      - run: npm ci --no-audit --no-fund
+
+      - name: Build
+        run: npx --yes "eas-cli@$EAS_CLI_VERSION" build --platform android --profile production --local --non-interactive --output "$RUNNER_TEMP/app.aab"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: android-aab
+          path: ${{ runner.temp }}/app.aab
+          if-no-files-found: error
+          retention-days: 7
+
+  build-ios:
+    name: Build iOS (eas build --local)
+    needs: [bump-version]
+    runs-on: macos-15
+    environment: production
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: loginrek-mobile
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.bump-version.outputs.sha }}
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: loginrek-mobile/package-lock.json
+
+      # Xcode terbaru yang stabil: React Native/Expo SDK baru mensyaratkan Xcode baru.
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      # eas build --local di iOS memakai fastlane + CocoaPods (umumnya sudah ada di image runner).
+      - name: Pastikan fastlane ada
+        run: command -v fastlane >/dev/null || brew install fastlane
+
+      - name: Cek EXPO_TOKEN
+        run: '[ -n "$EXPO_TOKEN" ] || { echo "::error::Secret EXPO_TOKEN belum diisi (Environment production)."; exit 1; }'
+
+      - run: npm ci --no-audit --no-fund
+
+      - name: Build
+        run: npx --yes "eas-cli@$EAS_CLI_VERSION" build --platform ios --profile production --local --non-interactive --output "$RUNNER_TEMP/app.ipa"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ios-ipa
+          path: ${{ runner.temp }}/app.ipa
+          if-no-files-found: error
+          retention-days: 7
+
+  submit-android:
+    name: Submit ke Play (internal)
+    needs: [bump-version, build-android]
+    if: github.event_name != 'workflow_dispatch' || inputs.submit
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: loginrek-mobile
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.bump-version.outputs.sha }}
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: loginrek-mobile/package-lock.json
+
+      - run: npm ci --no-audit --no-fund
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: android-aab
+          path: ${{ runner.temp }}/bin
+
+      # Kredensial service account Google Play diambil dari EAS. Track/status ada di eas.json (submit.production.android).
+      - name: Submit
+        run: npx --yes "eas-cli@$EAS_CLI_VERSION" submit --platform android --profile production --path "$RUNNER_TEMP/bin/app.aab" --non-interactive
+
+  submit-ios:
+    name: Submit ke TestFlight
+    needs: [bump-version, build-ios]
+    if: github.event_name != 'workflow_dispatch' || inputs.submit
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: loginrek-mobile
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      ASC_APP_ID: ${{ vars.ASC_APP_ID }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.bump-version.outputs.sha }}
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: loginrek-mobile/package-lock.json
+
+      - run: npm ci --no-audit --no-fund
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: ios-ipa
+          path: ${{ runner.temp }}/bin
+
+      # ascAppId (ID numerik app di App Store Connect) tidak ditulis di repo: diisi dari variabel repo ASC_APP_ID
+      # bila ada. Kunci App Store Connect API diambil dari kredensial yang tersimpan di EAS.
+      - name: Submit
+        run: |
+          set -euo pipefail
+          if [ -n "${ASC_APP_ID:-}" ]; then
+            jq --arg id "$ASC_APP_ID" '.submit.production.ios.ascAppId = $id' eas.json > "$RUNNER_TEMP/eas.json"
+            cp "$RUNNER_TEMP/eas.json" eas.json
+          fi
+          npx --yes "eas-cli@$EAS_CLI_VERSION" submit --platform ios --profile production --path "$RUNNER_TEMP/bin/app.ipa" --non-interactive
+
+  rebase-native:
+    name: Simpan acuan native versi baru
+    needs: [bump-version, build-android, build-ios]
+    runs-on: ubuntu-latest
+    environment: production
+    # Bergantian dengan publish-ota: keduanya menulis ke ota-state di VPS.
+    concurrency:
+      group: ota-production
+      cancel-in-progress: false
+    permissions:
+      contents: read
+    env:
+      CHANNEL: production
+      DEPLOY_PATH: ${{ secrets.VPS_DEPLOY_PATH || '/opt/loginrek' }}
+      VERSION: ${{ needs.bump-version.outputs.version }}
+    steps:
+      # Sidik jari native dari job native-check (tidak memuat versi, jadi sama untuk versi yang dinaikkan).
+      - uses: actions/download-artifact@v8
+        with:
+          name: native-fingerprint
+          path: ${{ runner.temp }}
+
+      - name: Simpan acuan native di VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT || '22' }}
+          VPS_USER: ${{ secrets.VPS_USER || 'root' }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::versi tidak valid: $VERSION"; exit 1; }
+          key="$RUNNER_TEMP/vps_key"
+          install -m 600 /dev/null "$key"
+          printf '%s\n' "$VPS_SSH_KEY" > "$key"
+          trap 'rm -f "$key"' EXIT
+          dir="$DEPLOY_PATH/ota-state/$CHANNEL"
+          ssh -i "$key" -p "$VPS_PORT" -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
+            -o UserKnownHostsFile="$RUNNER_TEMP/known_hosts" "$VPS_USER@$VPS_HOST" \
+            "mkdir -p '$dir' && cat > '$dir/$VERSION.native.txt.tmp' && mv -f '$dir/$VERSION.native.txt.tmp' '$dir/$VERSION.native.txt'" \
+            < "$RUNNER_TEMP/native.txt"
+          echo "Acuan native untuk $CHANNEL/$VERSION disimpan."
+          echo "### Build native selesai" >> "$GITHUB_STEP_SUMMARY"
+          echo "- versi/runtime: \`$VERSION\` (acuan native disimpan; OTA untuk versi ini kini boleh)" >> "$GITHUB_STEP_SUMMARY"

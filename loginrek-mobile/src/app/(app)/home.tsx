@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
+  AppState,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -17,6 +18,7 @@ import { router, useFocusEffect } from 'expo-router';
 
 import { attendanceApi, getMediaUrl } from '@/lib/api';
 import { userStore, UserAccount, AttendanceRecord } from '@/lib/session';
+import { locationStore } from '@/lib/location-store';
 import { syncStore } from '@/lib/sync-store';
 import {
   formatFullDate,
@@ -229,6 +231,18 @@ export default function HomeScreen() {
     useCallback(() => {
       loadData();
     }, [loadData])
+  );
+
+  // Panaskan lokasi agar presensi cepat: hanya bila izin lokasi SUDAH diberikan (tidak pernah memunculkan
+  // dialog izin). Dijalankan saat Beranda aktif dan saat aplikasi kembali dibuka.
+  useFocusEffect(
+    useCallback(() => {
+      void locationStore.warmUp();
+      const sub = AppState.addEventListener('change', (state) => {
+        if (state === 'active') void locationStore.warmUp();
+      });
+      return () => sub.remove();
+    }, [])
   );
 
   // Tarik ke bawah untuk refresh (Pull-to-Refresh)

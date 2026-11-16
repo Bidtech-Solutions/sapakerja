@@ -3,7 +3,7 @@
     "name": "SapaKerja",
     "slug": "loginrek",
     "scheme": "loginrek",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -16,14 +16,18 @@
         "NSCameraUsageDescription": "SapaKerja membutuhkan akses kamera untuk foto selfie absensi.",
         "NSLocationWhenInUseUsageDescription": "SapaKerja membutuhkan akses lokasi untuk memastikan Anda berada di area kantor.",
         "NSPhotoLibraryUsageDescription": "SapaKerja membutuhkan izin akses galeri foto untuk mengubah foto profil akun Anda.",
-        "UIBackgroundModes": ["remote-notification"]
+        "UIBackgroundModes": [
+          "remote-notification"
+        ]
       }
     },
     "android": {
       "package": "id.co.bidtech.loginrek",
       "config": {
-          "googleMaps": { "apiKey": "AIzaSyBIPE5ig24GNm1qoVCvrAXl2WHqKy5U5kA" }
-        },      
+        "googleMaps": {
+          "apiKey": "AIzaSyBIPE5ig24GNm1qoVCvrAXl2WHqKy5U5kA"
+        }
+      },
       "versionCode": 3,
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
@@ -40,6 +44,9 @@
         "android.permission.INTERNET",
         "android.permission.ACCESS_NETWORK_STATE",
         "android.permission.POST_NOTIFICATIONS"
+      ],
+      "blockedPermissions": [
+        "android.permission.SYSTEM_ALERT_WINDOW"
       ]
     },
     "web": {
@@ -87,6 +94,28 @@
       "expo-sqlite",
       "expo-image",
       "expo-localization",
+      [
+        "expo-camera",
+        {
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "microphonePermission": false
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "SapaKerja hanya memakai lokasi saat aplikasi sedang dibuka, bukan di latar belakang.",
+          "locationAlwaysPermission": "SapaKerja hanya memakai lokasi saat aplikasi sedang dibuka, bukan di latar belakang.",
+          "motionUsagePermission": false,
+          "locationFullAccuracyPermission": "SapaKerja membutuhkan lokasi yang presisi untuk memastikan Anda berada di area kantor saat absen."
+        }
+      ],
       "expo-background-task",
       [
         "expo-notifications",
@@ -95,10 +124,12 @@
           "color": "#0B7F78",
           "defaultChannel": "default",
           "sounds": [
-            "./assets/notifications/sapakerja_notification.wav"
+            "./assets/notifications/sapakerja_notification.wav",
+            "./assets/notifications/sapakerja_notification_2.wav"
           ]
         }
-      ]
+      ],
+      "expo-status-bar"
     ],
     "experiments": {
       "typedRoutes": true
