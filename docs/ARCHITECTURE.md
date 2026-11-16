@@ -191,13 +191,10 @@ HP ──GET /updates/files/…──► bundle & aset (immutable)
   `publishId` (atau "Bawaan build" bila belum ada update OTA) lewat `src/lib/app-info.ts`. Rilis sebelum penanda ini ditambahkan
   tidak punya `publishId`; aplikasi menampilkan 8 karakter pertama `updateId` sebagai gantinya.
 
-- **Gate update saat startup** (`src/features/updates`, dipasang di `app/_layout.tsx`): tanpa ini, install baru memakai bundle bawaan
-  di peluncuran pertama dan OTA baru dipakai di peluncuran berikutnya. Alur: splash native tetap tampil → NetInfo (offline → langsung lanjut) →
-  `checkForUpdateAsync` (anggaran total ~4 detik bersama NetInfo) → bila ada update, `UpdateScreen` (tampilan sama dengan splash +
-  indikator/progress) → `fetchUpdateAsync` (maks 15 detik) → `reloadAsync` **hanya bila** `isNew`. Timeout/error/gagal apa pun = lanjut
-  dengan bundle saat ini (tanpa alert). Dilewati di `__DEV__`, Expo Go, `!Updates.isEnabled`, dan emergency launch. Satu `preventAutoHideAsync`
-  (tingkat modul `_layout.tsx`) dan satu `hideAsync` (`UpdateGate`). Konfigurasi `updates` di `app.json` tidak diubah. Hanya JS, tetapi baru
-  berefek untuk install baru setelah ada build native yang memuatnya di bundle bawaan.
+- **Update di latar belakang** (bawaan expo-updates, tanpa kode tambahan): `checkAutomatically` dan `fallbackToCacheTimeout` tidak di-override di
+  `app.json` (bawaan: `ON_LOAD` dan `0`). Aplikasi langsung terbuka dengan bundle yang ada, tanpa layar loading; update diunduh di latar
+  belakang dan dipakai pada pembukaan berikutnya. Konsekuensinya, install baru memakai bundle bawaan di peluncuran pertama dan OTA terbaru
+  baru aktif di peluncuran kedua. Sengaja dipilih demi UX: pengguna tidak pernah menunggu. Jangan menambah gate/layar pembaruan saat startup.
 
 **Cara rilis** — otomatis saat commit di `loginrek-mobile/` masuk `main`. Pantau di Actions → `loginrek` → `Publish OTA`.
 

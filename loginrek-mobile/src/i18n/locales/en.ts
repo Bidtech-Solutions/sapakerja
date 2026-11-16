@@ -242,10 +242,6 @@ const en: Translation = {
     photoFailedBody: 'Something went wrong while opening the photo library.',
   },
 
-  updates: {
-    updating: 'Updating the app...',
-  },
-
   appInfo: {
     label: 'App version information',
     embedded: 'Built-in',
