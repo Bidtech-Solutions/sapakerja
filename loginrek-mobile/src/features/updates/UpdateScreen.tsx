@@ -1,4 +1,5 @@
-import { ActivityIndicator, Image, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, StyleSheet, View } from 'react-native';
+import { Text } from '@/components/typography';
 import { useTranslation } from 'react-i18next';
 import { useUpdates } from 'expo-updates';
 

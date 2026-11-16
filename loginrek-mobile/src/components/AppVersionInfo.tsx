@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from '@/components/typography';
 import { useTranslation } from 'react-i18next';
 
 import { getAppInfo } from '@/lib/app-info';
