@@ -2,8 +2,8 @@ import i18n, { use as registerPlugin } from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import { getLocales } from 'expo-localization';
 
-import en from './locales/en';
-import id from './locales/id';
+import en from './en';
+import id from './id';
 
 export type AppLanguage = 'id' | 'en';
 

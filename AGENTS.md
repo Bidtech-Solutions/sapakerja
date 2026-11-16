@@ -90,7 +90,7 @@ Cek versi major `expo` di `package.json`, lalu buka dokumentasi versi itu
 3. Token **hanya** di `expo-secure-store` (`src/lib/token-storage.ts`), bukan AsyncStorage.
 4. Warna/spasi/font dari `src/lib/theme.ts` (`colors`, `spacing`, dan `Text`/`TextInput` bawaan berfont Plus Jakarta Sans — jangan pakai `Text`/`TextInput` langsung dari `react-native`) — jangan hardcode hex di komponen.
 5. Env publik berprefix `EXPO_PUBLIC_` masuk ke bundle — **tidak boleh berisi secret**.
-6. Teks UI lewat i18n (`react-i18next`, kamus `src/i18n/locales/id.ts` dan `en.ts`; `en` harus punya kunci yang sama dengan `id`, dicek
+6. Teks UI lewat i18n (`react-i18next`, kamus `src/i18n/id.ts` dan `en.ts`; `en` harus punya kunci yang sama dengan `id`, dicek
    typecheck). Bahasa mengikuti bahasa perangkat: Indonesia untuk `id`, selain itu Inggris. Jangan hardcode teks UI di komponen; tanggal/jam
    lewat `src/lib/attendance-format.ts`. Nama kode bahasa Inggris. Import pakai alias `@/...`.
 7. Utamakan modul Expo (`expo-camera`, `expo-location`, ...) — tersedia di Expo Go.
