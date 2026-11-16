@@ -1,7 +1,6 @@
 import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   BackHandler,
   Image,
   KeyboardAvoidingView,

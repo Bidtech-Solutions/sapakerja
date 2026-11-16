@@ -636,11 +636,6 @@ const styles = StyleSheet.create({
     color: '#0F1F24',
     letterSpacing: -0.3,
   },
-  saveLink: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#0B7369',
-  },
   avatarContainer: {
     alignItems: 'center',
     marginBottom: 20,
@@ -727,19 +722,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#475569',
-  },
-  inputBox: {
-    backgroundColor: '#F1F5F9',
-    borderRadius: 12,
-    height: 48,
-    paddingHorizontal: 16,
-    justifyContent: 'center',
-  },
-  textInput: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#0F1F24',
-    padding: 0,
   },
   divider: {
     height: 1,

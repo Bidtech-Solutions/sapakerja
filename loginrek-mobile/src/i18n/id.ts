@@ -13,7 +13,6 @@ const id = {
     backToHome: 'Kembali ke Beranda',
     goToMainMenu: 'Ke Menu Utama',
     notice: 'Perhatian',
-    loading: 'Memuat…',
     tabs: {
       history: 'Riwayat',
       attendance: 'Presensi',

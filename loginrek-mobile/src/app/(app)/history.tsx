@@ -255,13 +255,6 @@ export default function HistoryScreen() {
     }
   }
 
-  // Pilih bulan langsung dari modal
-  function handleSelectMonth(idx: number) {
-    setSelectedMonthIdx(idx);
-    setSelectedDateFilter(null);
-    setShowMonthPicker(false);
-  }
-
   // Rekap angka kehadiran
   const hadirCount = currentMonthServerActivities.length > 0
     ? currentMonthServerActivities.filter((a) => a.type === 'on_time').length
@@ -1655,24 +1648,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
   },
-  headerLeftWithBack: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    marginRight: 10,
-  },
-  headerBackBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: '#F8FAFC',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-  },
-  headerBackBtnPressed: {
-    backgroundColor: '#E2E8F0',
-  },
   detailScroll: {
     flex: 1,
     backgroundColor: '#F8FAFC',
@@ -1830,64 +1805,6 @@ const styles = StyleSheet.create({
   },
   statusBadgeTextAbsent: {
     color: '#DC2626',
-  },
-  previewLocationCard: {
-    width: '100%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: '#EDF2F4',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 6,
-    elevation: 1,
-  },
-  locationIconBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: '#E6F9F5',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 14,
-  },
-  previewLocationName: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#0F1F24',
-    marginTop: 2,
-  },
-  previewLocationDesc: {
-    fontSize: 11.5,
-    color: '#0E7C86',
-    fontWeight: '500',
-    marginTop: 2,
-  },
-  backToHistoryBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#E6F9F5',
-    borderWidth: 1,
-    borderColor: '#B9F0E5',
-    borderRadius: 14,
-    paddingVertical: 13,
-    marginTop: 4,
-    marginBottom: 10,
-  },
-  backToHistoryBtnPressed: {
-    backgroundColor: '#C8F3EA',
-  },
-  backToHistoryBtnText: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: '#05564E',
   },
   activityCardPressed: {
     backgroundColor: '#F8FAFC',

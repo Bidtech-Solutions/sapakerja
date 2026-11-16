@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
-  Dimensions,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -17,7 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 
-import { attendanceApi, getMediaUrl, setAccessToken } from '@/lib/api';
+import { attendanceApi, getMediaUrl } from '@/lib/api';
 import { userStore, UserAccount, AttendanceRecord } from '@/lib/session';
 import { syncStore } from '@/lib/sync-store';
 import {
@@ -520,8 +518,6 @@ export default function HomeScreen() {
   );
 }
 
-const { width } = Dimensions.get('window');
-
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
@@ -868,60 +864,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#05564E',
     marginTop: 4,
-  },
-  syncBannerCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#FFFBEB',
-    borderWidth: 1,
-    borderColor: '#FDE68A',
-    borderRadius: 14,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    marginBottom: 16,
-  },
-  syncBannerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    marginRight: 10,
-  },
-  syncIconBox: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#FEF3C7',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-  },
-  syncTextColumn: {
-    flex: 1,
-  },
-  syncBannerTitle: {
-    fontSize: 12.5,
-    fontWeight: '700',
-    color: '#92400E',
-  },
-  syncBannerSubtitle: {
-    fontSize: 10.5,
-    color: '#B45309',
-    marginTop: 1,
-  },
-  syncButton: {
-    backgroundColor: '#D97706',
-    paddingVertical: 7,
-    paddingHorizontal: 14,
-    borderRadius: 8,
-  },
-  syncButtonPressed: {
-    backgroundColor: '#B45309',
-  },
-  syncButtonText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
   },
   emptyHistoryCard: {
     backgroundColor: '#FFFFFF',

@@ -12,7 +12,6 @@ const en: Translation = {
     backToHome: 'Back to Home',
     goToMainMenu: 'Go to Home',
     notice: 'Notice',
-    loading: 'Loading…',
     tabs: {
       history: 'History',
       attendance: 'Check-in',
