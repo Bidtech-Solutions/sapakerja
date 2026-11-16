@@ -98,6 +98,7 @@ Cek versi major `expo` di `package.json`, lalu buka dokumentasi versi itu
    `usePermissionGate` (`src/hooks`): status `undetermined` langsung memanggil dialog sistem tanpa layar/tombol Pengaturan; `denied` +
    `canAskAgain` memakai tombol "Lanjutkan"; hanya `denied` tanpa `canAskAgain` (atau GPS mati) yang boleh menawarkan `Linking.openSettings()`.
    Lokasi hanya foreground (When In Use), jangan minta background.
+   Splash: satu `preventAutoHideAsync` di `app/_layout.tsx` dan satu `hideAsync` di `UpdateGate` (`src/features/updates`); jangan tambah yang lain.
 9. OTA (expo-updates ke server sendiri): commit JS/aset di `loginrek-mobile/` dirilis otomatis oleh job `publish-ota`
    (`.github/workflows/loginrek.yml`); perubahan native/`app.json`/`google-services.json`/sertifikat ditolak CI dan butuh `eas build` +
    `rebase_native`. Jangan commit `keys/`. Detail: `docs/ARCHITECTURE.md` ("Update OTA").

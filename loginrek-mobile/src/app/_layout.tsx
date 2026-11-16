@@ -1,14 +1,20 @@
 import { useEffect } from 'react';
 import { router, Stack } from 'expo-router';
 import { ObserveRoot } from 'expo-observe';
+import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import '@/i18n';
+import { UpdateGate } from '@/features/updates/UpdateGate';
 import { setAccessToken, setUnauthorizedHandler } from '@/lib/api';
 import { tokenStorage } from '@/lib/token-storage';
 import { userStore } from '@/lib/user-store';
 import { colors } from '@/theme/colors';
+
+// Splash native tetap tampil sampai UpdateGate menyembunyikannya (satu-satunya hideAsync).
+// Dipanggil di tingkat modul, sebelum render apa pun; jangan panggil lagi di tempat lain.
+SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
 /**
  * Root layout (Expo Router). Nanti di sini: provider auth + React Query,
@@ -31,30 +37,32 @@ function RootLayout() {
   }, []);
 
   return (
-    <SafeAreaProvider>
-      <StatusBar style="dark" />
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: colors.background },
-          animation: 'slide_from_right',
-        }}
-      >
-        <Stack.Screen name="index" />
-        <Stack.Screen
-          name="(auth)/login"
-          options={{
-            gestureEnabled: false,
+    <UpdateGate>
+      <SafeAreaProvider>
+        <StatusBar style="dark" />
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { backgroundColor: colors.background },
+            animation: 'slide_from_right',
           }}
-        />
-        <Stack.Screen
-          name="(app)/attendance"
-          options={{
-            animation: 'slide_from_bottom',
-          }}
-        />
-      </Stack>
-    </SafeAreaProvider>
+        >
+          <Stack.Screen name="index" />
+          <Stack.Screen
+            name="(auth)/login"
+            options={{
+              gestureEnabled: false,
+            }}
+          />
+          <Stack.Screen
+            name="(app)/attendance"
+            options={{
+              animation: 'slide_from_bottom',
+            }}
+          />
+        </Stack>
+      </SafeAreaProvider>
+    </UpdateGate>
   );
 }
 

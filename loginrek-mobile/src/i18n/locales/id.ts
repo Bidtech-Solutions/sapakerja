@@ -246,6 +246,10 @@ const id = {
     photoFailedBody: 'Terjadi kesalahan saat membuka galeri foto.',
   },
 
+  updates: {
+    updating: 'Memperbarui aplikasi...',
+  },
+
   appInfo: {
     label: 'Informasi versi aplikasi',
     embedded: 'Bawaan build',
