@@ -95,7 +95,7 @@ Cek versi major `expo` di `package.json`, lalu buka dokumentasi versi itu
    lewat `src/lib/attendance-format.ts`. Nama kode bahasa Inggris. Import pakai alias `@/...`.
 7. Utamakan modul Expo (`expo-camera`, `expo-location`, ...) — tersedia di Expo Go.
 8. Permission dikonfigurasi lewat plugin/`infoPlist` `app.json`, diminta tepat sebelum dipakai. Alur izin (App Store 5.1.1(iv)) lewat
-   `usePermissionGate` (`src/hooks`): status `undetermined` langsung memanggil dialog sistem tanpa layar/tombol Pengaturan; `denied` +
+   `usePermissionGate` (di `attendance.tsx`): status `undetermined` langsung memanggil dialog sistem tanpa layar/tombol Pengaturan; `denied` +
    `canAskAgain` memakai tombol "Lanjutkan"; hanya `denied` tanpa `canAskAgain` (atau GPS mati) yang boleh menawarkan `Linking.openSettings()`.
    Lokasi hanya foreground (When In Use), jangan minta background.
    Splash: satu `preventAutoHideAsync` di `app/_layout.tsx` dan satu `hideAsync` di `UpdateGate` (`src/features/updates`); jangan tambah yang lain.
