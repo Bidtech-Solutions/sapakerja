@@ -1,7 +1,7 @@
 import Constants from 'expo-constants';
 import * as Updates from 'expo-updates';
 
-import { env } from '@/config/env';
+import { env } from '@/lib/env';
 
 export type AppInfo = {
   /** Production / Preview / Development */

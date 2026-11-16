@@ -21,7 +21,7 @@ import { attendanceApi, setAccessToken } from '@/lib/api';
 import { tokenStorage } from '@/lib/token-storage';
 import { userStore, UserAccount, AttendanceRecord } from '@/lib/user-store';
 import { syncStore } from '@/lib/sync-store';
-import { getMediaUrl } from '@/config/env';
+import { getMediaUrl } from '@/lib/env';
 import {
   formatFullDate,
   formatMonthYear,

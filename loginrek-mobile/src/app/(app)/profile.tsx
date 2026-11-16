@@ -18,7 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Feather } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
-import { getMediaUrl } from '@/config/env';
+import { getMediaUrl } from '@/lib/env';
 import * as ImagePicker from 'expo-image-picker';
 
 import { authApi, ApiError, setAccessToken } from '@/lib/api';

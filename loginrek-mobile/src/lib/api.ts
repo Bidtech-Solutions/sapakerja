@@ -1,4 +1,4 @@
-import { env } from '@/config/env';
+import { env } from '@/lib/env';
 
 /**
  * Client HTTP tipis di atas fetch untuk REST API loginrek.

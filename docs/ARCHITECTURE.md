@@ -117,16 +117,15 @@ src/app (route)  ->  hook / logic  ->  src/lib/api.ts  ->  REST API
                           └─ device API: expo-location, expo-camera
 ```
 
-### Base URL API (`src/config/env.ts`)
+### Base URL API (`src/lib/env.ts`)
 
 | Situasi | URL |
 | ------- | --- |
-| `EXPO_PUBLIC_API_URL` di-set (`.env.local` / `eas.json`) | nilai tersebut |
-| Dev via Expo Go, satu Wi-Fi dengan laptop | otomatis `http://<IP laptop>:3333/api/v1` |
-| Emulator Android / iOS simulator | `10.0.2.2` / `localhost` |
-| Build production | `https://api.sapakerja.com/api/v1` (di `eas.json`) |
+| `EXPO_PUBLIC_API_URL` di-set (`.env` root / `eas.json`) | nilai tersebut |
+| Tidak di-set | `https://api.sapakerja.com/api/v1` (API production) |
 
-Mode `--tunnel` tidak meneruskan port API — set `EXPO_PUBLIC_API_URL` ke URL tunnel API.
+Untuk dev lokal, isi `EXPO_PUBLIC_API_URL` dengan alamat API yang terjangkau perangkat: IP laptop (HP fisik satu Wi-Fi),
+`10.0.2.2` (emulator Android), atau `localhost` (iOS simulator). Mode `--tunnel` tidak meneruskan port API, jadi pakai URL tunnel API.
 
 ### Alur utama
 1. Root layout → baca token → `GET /auth/me`; 401 → hapus token → login.

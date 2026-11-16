@@ -17,7 +17,7 @@ import { router, useFocusEffect } from 'expo-router';
 
 import { userStore, UserAccount, AttendanceRecord } from '@/lib/user-store';
 import { attendanceApi, AttendanceResponse } from '@/lib/api';
-import { getMediaUrl } from '@/config/env';
+import { getMediaUrl } from '@/lib/env';
 import {
   isSameDay,
   monthName,
