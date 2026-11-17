@@ -6,7 +6,7 @@
 flowchart LR
   subgraph Client
     M[loginrek-mobile<br/>React Native / Expo :8081]
-    W[loginrek-dashboard<br/>React 19 + Vite :5173]
+    W[loginrek-dashboard<br/>Next.js 16: situs publik + dashboard HR :5173]
   end
 
   subgraph Backend & Storage
@@ -24,7 +24,7 @@ flowchart LR
 | Komponen | Peran |
 | -------- | ----- |
 | `loginrek-backend` | REST API (Gin + GORM). JWT, bcrypt, AutoMigrate, seeder akun uji, kompresi foto ke WebP. PostgreSQL dengan fallback otomatis ke SQLite (`tmp/db.sqlite3`); RustFS/S3 dengan fallback ke `public/uploads/`. |
-| `loginrek-dashboard` | SPA untuk HR/Admin: monitoring absensi, peta Leaflet, manajemen karyawan, pengaturan. |
+| `loginrek-dashboard` | Next.js (App Router, Tailwind v4). Situs publik SapaKerja (`/`, `/privacy`; i18n id/en mengikuti bahasa perangkat, SEO/AEO/GEO, Google Tag Manager) dan dashboard HR di `/login`, `/attendance`, `/employees`, `/settings` (monitoring absensi, peta Google Maps tersemat, manajemen karyawan, pengaturan). |
 | `loginrek-mobile` | Aplikasi karyawan: login, absen GPS + selfie, riwayat, mode offline-sync. |
 
 Mobile dan dashboard hanya bicara dengan REST API (`docs/API.md`). Tidak ada akses langsung
@@ -237,12 +237,12 @@ penuh di VPS, di belakang **Traefik** (jaringan eksternal `traefik-network`, ent
 
 | Domain | Service | Keterangan |
 | ------ | ------- | ---------- |
-| `sapakerja.com` | `lr-dashboard` | dashboard HR (SPA statis Nginx) |
+| `sapakerja.com` | `lr-dashboard` | situs publik (`/`, `/privacy`) dan dashboard HR (`/login`, `/attendance`, ...); server Node Next.js (`output: standalone`, port 3000) |
 | `loginrek.bidtech.co.id` (`DASHBOARD_DOMAIN_LEGACY`) | `lr-dashboard` | domain lama dashboard, dilayani langsung (tanpa redirect) |
 | `api.sapakerja.com` | `lr-backend` | REST API + foto (`/uploads/*`) + update OTA (`/updates/*`); rate limit 30 req/s per IP (`CF-Connecting-IP`) |
 | `loginrek-api.bidtech.co.id` (`API_DOMAIN_LEGACY`) | `lr-backend` | domain lama API; router `lr-api` yang sama, dilayani langsung |
 
-**Dua domain, tanpa redirect.** Router `lr-dashboard` dan `lr-api` memakai `Host(baru) || Host(lama)`; `CORS_ORIGINS` memuat kedua origin dashboard. Domain lama TIDAK di-redirect di Cloudflare: HP dengan build lama masih memanggil `loginrek-api.bidtech.co.id`, dan redirect mengubah POST menjadi GET serta membuang header `Authorization` saat lintas host. Dashboard hanya punya satu `VITE_API_URL` (`https://api.sapakerja.com`), termasuk saat dibuka lewat domain lama. Domain lama boleh dipensiunkan setelah tidak ada HP dengan build lama.
+**Dua domain, tanpa redirect.** Router `lr-dashboard` dan `lr-api` memakai `Host(baru) || Host(lama)`; `CORS_ORIGINS` memuat kedua origin dashboard. Domain lama TIDAK di-redirect di Cloudflare: HP dengan build lama masih memanggil `loginrek-api.bidtech.co.id`, dan redirect mengubah POST menjadi GET serta membuang header `Authorization` saat lintas host. Dashboard hanya punya satu `NEXT_PUBLIC_API_URL` (`https://api.sapakerja.com`), termasuk saat dibuka lewat domain lama. Domain lama boleh dipensiunkan setelah tidak ada HP dengan build lama.
 
 <!-- DIUBAH (OTA): `/updates/*` dan volume `./updates` ditambahkan. Saat ini /updates masih memakai router `lr-api` (rate limit + kompresi Traefik yang sama). -->
 - `lr-backend` me-mount `./updates` (di samping compose) ke `/data/updates` **read-only**; `UPDATES_DIR=/data/updates`. Lihat "Update OTA".
@@ -254,9 +254,12 @@ penuh di VPS, di belakang **Traefik** (jaringan eksternal `traefik-network`, ent
 - Nama service berawalan `lr-` karena menjadi alias DNS di `traefik-network` yang dipakai
   bersama project lain.
 - Image: `loginrek-backend/Dockerfile` (binary Go statis di alpine, non-root, `/health` untuk healthcheck) dan
-  `loginrek-dashboard/Dockerfile` (build Vite → Nginx; fallback `index.html` untuk React Router).
-- URL API dibakar ke bundle dashboard saat build lewat build-arg `VITE_API_URL` (wajib; CI: env `API_URL` di
-  workflow, compose: `https://${API_DOMAIN}`).
+  `loginrek-dashboard/Dockerfile` (Next.js `standalone`, non-root, port 3000, healthcheck `/health.json` (berkas statis di `public/`)). Dashboard memakai
+  `lr-dashboard` yang sama dengan situs publik; tautan lama `sapakerja.com/dashboard/*` dialihkan (307) ke `/login` dst. Domain lama (`*_LEGACY`) menyajikan
+  konten yang sama, tetapi semua halaman memakai canonical `https://sapakerja.com` sehingga tidak dihitung duplikat oleh mesin pencari.
+- Variabel `NEXT_PUBLIC_*` dibakar ke bundle saat build lewat build-arg: `NEXT_PUBLIC_API_URL` (wajib; CI: `https://$API_DOMAIN`,
+  compose: `https://${API_DOMAIN}`), `NEXT_PUBLIC_SITE_URL` (`https://$DASHBOARD_DOMAIN`), `NEXT_PUBLIC_GTM_ID`, `NEXT_PUBLIC_GA_ID` dan
+  `NEXT_PUBLIC_GSC_VERIFICATION` (opsional; dari GitHub repository variables `GTM_ID` (bawaan `GTM-MD232CD5`), `GA_ID`, dan `GSC_VERIFICATION`).
 - Production tidak pernah jatuh ke SQLite: bila PostgreSQL tidak terjangkau, backend berhenti dan container
   di-restart. Backend juga menunggu RustFS siap (cek bucket dicoba ulang ±30 detik) sebelum memakai disk lokal.
 - Variabel: `.env.example`.

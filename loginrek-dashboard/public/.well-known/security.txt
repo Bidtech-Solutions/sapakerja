@@ -1,0 +1,5 @@
+# security.txt (RFC 9116). Berkas statis: PERBARUI "Expires" sebelum tanggalnya (maks. ~1 tahun ke depan), bila tidak berkas dianggap kedaluwarsa.
+Contact: mailto:cs@sapakerja.com
+Expires: 2027-10-31T23:59:59.000Z
+Preferred-Languages: id, en
+Canonical: https://sapakerja.com/.well-known/security.txt

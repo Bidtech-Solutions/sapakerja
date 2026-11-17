@@ -12,7 +12,7 @@ lewat **dashboard** web; keduanya memakai **backend** REST API.
 | Folder | Stack | Port |
 | ------ | ----- | ---- |
 | `loginrek-backend/` | Go + Gin, GORM, PostgreSQL (fallback SQLite), RustFS/S3 | 3333 |
-| `loginrek-dashboard/` | React 19 + Vite (JavaScript) | 5173 |
+| `loginrek-dashboard/` | Next.js 16 (App Router) + Tailwind CSS v4: situs publik SapaKerja (landing, i18n id/en) + dashboard HR | 5173 |
 | `loginrek-mobile/` | React Native + Expo SDK 57, Expo Router, TypeScript | 8081 |
 
 Kontrak API: `docs/API.md`. Bila endpoint belum ada, sebutkan — jangan mengarang bentuk respons.
@@ -26,7 +26,7 @@ domain lama (`loginrek.bidtech.co.id`, `loginrek-api.bidtech.co.id`) tetap dilay
 
 Satu file `.env` di **root** untuk semua produk (salin dari `.env.example`); jangan membuat
 `.env` / `.env.example` per folder. Dibaca oleh docker compose, backend (`../.env`), dashboard
-(Vite `envDir`, hanya `VITE_*`), dan mobile (`npm run dev`, hanya `EXPO_PUBLIC_*`). Variabel baru
+(Next.js; `next.config.mjs` memuat `.env` root, hanya `NEXT_PUBLIC_*`), dan mobile (`npm run dev`, hanya `EXPO_PUBLIC_*`). Variabel baru
 wajib ditambahkan ke `.env.example` root. `.gitignore` juga hanya satu, di root.
 
 ## Perintah
@@ -65,11 +65,56 @@ npx expo install <pkg>                                   # SELALU untuk menambah
 - Respons sukses `{ "data": ... }`. Field JSON `camelCase`.
 - Perubahan model GORM → perbarui bagian skema di `docs/ARCHITECTURE.md`.
 
-## Dashboard (`loginrek-dashboard`)
+## Situs publik & Dashboard HR (`loginrek-dashboard`)
 
-- Base URL API dibaca dari `VITE_API_URL` (lihat `src/config.js`); jangan menulis `http://localhost:3333` langsung.
-- Routing memakai React Router (`BrowserRouter`, rute di `src/App.jsx`); jangan kembali ke state `currentTab`. Daftar rute ada di README.
-- Server production harus mengembalikan `index.html` untuk URL yang bukan file (fallback SPA di `loginrek-dashboard/Dockerfile`).
+Next.js berubah cepat — jangan percaya ingatan: baca dokumentasi versi terpasang di `loginrek-dashboard/node_modules/next/dist/docs/`.
+(`next dev` membuat `loginrek-dashboard/AGENTS.md` otomatis; berkas itu di-ignore, aturan proyek hanya di AGENTS.md root.)
+
+Satu aplikasi Next.js, **tanpa folder `src/`**: `app/`, `i18n/`, `lib/`, `components/`, `styles/`, `public/`. **Satu root layout** (`app/layout.tsx`: `<html lang>`,
+`<body>`, font, `styles/globals.css`); situs publik dan dashboard HR berbagi root itu:
+
+- Situs publik: `app/page.tsx` (beranda) dan `app/privacy/page.tsx`; 404 di `app/not-found.tsx`. Semuanya dirender per permintaan karena
+  bahasa dibaca dari cookie/header. Styling **Tailwind CSS v4** (semua gaya ada di folder `styles/`: `styles/globals.css` = Tailwind (tema, utilitas, token) + gaya dasar; reset-nya `styles/preflight.css`
+  hanya berlaku di dalam pembungkus `.site`, lihat `SiteShell`), animasi **Motion** (`motion/react`) + scroll **Lenis**.
+  Seluruh bagian beranda (Header, Hero, Features, Faq, Contact, Download, Footer) ada **di `app/page.tsx`** karena hanya dipakai satu halaman.
+  Kode yang butuh `'use client'` (animasi, `HeroCarousel`, `FeaturesCarousel`, `Corners`) dikumpulkan di satu berkas klien, `components/site/motion.tsx`
+  (batas klien Next.js mewajibkan berkas terpisah). Di bawah `wide` (1020px) mockup hero dan fitur berbentuk carousel (hero otomatis per langkah,
+  fitur digeser manual).
+- **`lib/`**: hanya berkas yang dipakai lintas halaman. **Satu berkas tipe** untuk seluruh `lib/` (`lib/types.ts`: i18n + dashboard) dan satu `lib/api.ts`
+  (klien REST + URL API); tipe tidak didefinisikan di berkas lain. Tidak ada berkas pembantu terpisah per rute: helper yang hanya dipakai satu
+  halaman ditaruh di halaman itu; helper yang dipakai dua halaman dashboard (mis. `buildRecordsForDate`) ditaruh di `components/dashboard/AdminProvider.tsx`,
+  karena `page.tsx` tidak boleh mengekspor selain halamannya. Font (`next/font`) dideklarasikan langsung di `app/layout.tsx`.
+- **Ikon**: pakai paket `react-icons` (set `react-icons/lu`, gaya Lucide) langsung di halaman yang memerlukannya; jangan membuat berkas ikon SVG sendiri.
+- **Aturan `components/`**: sebuah komponen hanya boleh ada di `components/` bila dipakai **dua halaman atau lebih** (mis. `SiteShell`, `AdminProvider`). Komponen kecil yang berkerabat digabung dalam satu berkas: `SiteShell.tsx` memuat `SiteShell` + `JsonLd`,
+  `site/motion.tsx` memuat semua kode klien situs publik (animasi, carousel, `LanguageSwitch`), `dashboard/Session.tsx` memuat `SessionCheck` + `Redirect`,
+  dan `DashboardShell.tsx` memuat kerangka dashboard + `Sidebar`.
+  Kode yang hanya dipakai satu halaman tinggal di berkas halaman itu, bukan dipecah ke `components/` atau folder lain. Jangan membuat komponen
+  `Button` dan sejenisnya: cukup styling. Tiap halaman dashboard (`app/(dashboard)/**/page.tsx`) membawa seluruh UI-nya sendiri.
+- **Mockup layar aplikasi di beranda adalah gambar WEBP** (`public/images/screen-<layar>-{id,en}.webp`, 2x, bingkai ponsel sudah termasuk), bukan HTML.
+  Ganti berkasnya bila tampilan aplikasi berubah (idealnya tangkapan layar aplikasi sungguhan, per bahasa).
+- **Semua gambar** ada di `public/images/` (datar, tanpa subfolder): logo, favicon, badge toko, mockup layar, gambar OG, `default-avatar.webp`.
+- Dashboard HR: grup `app/(dashboard)/` (nama grup tidak muncul di URL): `/login`, `/attendance`, `/attendance/[id]`, `/employees`,
+  `/employees/new`, `/employees/[id]/edit`, `/settings`. Satu layout grup (`AdminProvider` + `DashboardShell` yang menjaga sesi dan memasang
+  sidebar kecuali di `/login`), TypeScript, `noindex`. Seluruh CSS-nya (`styles/dashboard.css`, tanpa Tailwind; hanya diimpor layout dashboard) dibungkus di bawah kelas
+  `.dash`; **jangan** menulis selektor global di sana dan jangan memakai utilitas Tailwind di komponen dashboard. Filter daftar (tanggal, pencarian,
+  jenis karyawan) hidup di `AdminProvider` agar tidak hilang saat berpindah rute. Halaman detail/ubah menunggu `dataReady` sebelum mengalihkan.
+  Rute dashboard baru: tambahkan di `app/(dashboard)/` dan daftarkan alamatnya di `app/robots.ts`. Tautan lama `/dashboard/*` dialihkan 307.
+- **i18n**: `i18n/{index,id,en}.ts`; `en` wajib punya kunci yang sama dengan `id` (dicek `npm run typecheck`). Jangan hardcode teks
+  situs publik di komponen. Dashboard HR hanya berbahasa Indonesia.
+  **Bahasa situs mengikuti perangkat**: satu URL per halaman (tanpa `/en`); `i18n/server.ts` memilih cookie `loginrek.lang` (diisi tombol
+  bahasa), lalu `Accept-Language` (Indonesia bila pilihan teratas `id`, selain itu English), tanpa header (crawler) = Indonesia.
+- **SEO / AEO / GEO**: `lib/metadata.ts` (isi `<head>`: judul, OG, canonical) dan `lib/schema.ts` (JSON-LD), `app/robots.ts`, `app/sitemap.ts`, `public/llms.txt`,
+  `public/llms-full.txt`, `public/.well-known/security.txt` (hanya lokasi resmi RFC 9116; tanpa `/security.txt`; **perbarui `Expires` sebelum 2027-10-31**, maks. ~1 tahun ke depan), `public/images/og-{id,en}.png`
+  (gambar pratinjau tautan 1200×630, **statis**, dirujuk dari `pageMetadata`: ganti berkasnya bila slogan/tampilan berubah). `public/llms*.txt` adalah berkas statis tulisan tangan (Indonesia dulu, lalu English; URL produksi `https://sapakerja.com`), **tidak**
+  otomatis mengikuti kamus: ubah bersama kamus i18n bila fitur/FAQ/kebijakan privasi berubah. Halaman publik
+  baru: tambahkan ke `SitePath` (`i18n/index.ts`), `app/sitemap.ts`, dan folder route di `app/`; bungkus isinya dengan `SiteShell`.
+- Fakta tetap (URL App Store/Play, kontak, alamat, GA/GSC) ada di `lib/site.ts`. Env: `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_SITE_URL`,
+  `NEXT_PUBLIC_GTM_ID`, `NEXT_PUBLIC_GA_ID`, `NEXT_PUBLIC_GSC_VERIFICATION` (semua publik, dibakar saat build; tambahkan ke `.env.example` root).
+- Base URL API dibaca dari `NEXT_PUBLIC_API_URL` (`API_ORIGIN`/`API_BASE` di `lib/api.ts`); jangan menulis `http://localhost:3333` langsung.
+- Google Tag Manager (atau GA langsung bila GTM kosong) **hanya** di situs publik (`components/site/SiteShell.tsx`); jangan dipasang di dashboard HR. Menambah pihak ketiga
+  di situs publik berarti memperbarui bagian 7 Kebijakan Privasi (`i18n/id.ts` dan `en.ts`).
+- SapaKerja adalah produk Bidtech: kredit Bidtech (footer, kontak, kebijakan privasi, JSON-LD, metadata) jangan dihapus; hero sengaja tanpa kredit. Bagian FAQ disembunyikan lewat
+  `SHOW_FAQ` di `lib/site.ts` (komponen dan kamus tetap ada).
 - Token warna & pola UI: `docs/DESIGN.md`.
 
 ## Mobile (`loginrek-mobile`)
@@ -112,6 +157,6 @@ Cek versi major `expo` di `package.json`, lalu buka dokumentasi versi itu
 ## Definition of done
 
 - Backend: `go vet ./... && go test ./...` lulus.
-- Dashboard: `npm run lint && npm run build` lulus.
+- Dashboard / situs publik: `npm run lint && npm run typecheck && npm run build` lulus.
 - Mobile: `npm run lint && npm run typecheck` lulus, `npm run doctor` tanpa error,
   dicoba di Expo Go (minimal satu perangkat).

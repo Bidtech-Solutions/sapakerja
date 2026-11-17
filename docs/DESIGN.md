@@ -10,7 +10,8 @@ Satu sistem desain untuk dashboard (admin/HR, desktop) dan mobile (karyawan).
 
 ## Token warna
 
-Mobile: `loginrek-mobile/src/lib/theme.ts`. Dashboard: `loginrek-dashboard/src/index.css`.
+Mobile: `loginrek-mobile/src/lib/theme.ts`. Dashboard HR: `loginrek-dashboard/styles/dashboard.css`. Situs publik: token Tailwind di
+`loginrek-dashboard/styles/globals.css` (`@theme`, turunan desain landing page: ink `#10302E`, teal `#0B7F78`, mint, glow `#6BE3C8`).
 Kedua klien memakai nilai yang sama.
 
 | Token | Nilai | Pemakaian |

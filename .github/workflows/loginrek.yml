@@ -1,7 +1,7 @@
 # =============================================================================
-# CI/CD loginrek — backend (Go) + dashboard (React/Vite) ke VPS
+# CI/CD loginrek — backend (Go) + dashboard (Next.js: situs publik + dashboard HR) ke VPS
 #
-#   check   : go vet/build backend, lint + build dashboard
+#   check   : go vet/build backend, lint + typecheck + build dashboard
 #   build   : build image Docker backend & dashboard -> push ke GHCR
 #             (tag sha-xxxxxxx + latest)
 #   package : bungkus docker-compose.prod.yml + .env.example sebagai artifact
@@ -85,13 +85,19 @@ env:
   REGISTRY: ghcr.io
   # Versi eas-cli untuk eas build --local / eas submit (tidak ada di devDependencies; dipanggil lewat npx).
   EAS_CLI_VERSION: "27.2.0"
-  # Domain publik production (DNS mengarah ke VPS). API_DOMAIN dibakar ke bundle
-  # dashboard saat build sebagai VITE_API_URL.
+  # Domain publik production (DNS mengarah ke VPS). API_DOMAIN dan DASHBOARD_DOMAIN dibakar ke bundle
+  # dashboard saat build sebagai NEXT_PUBLIC_API_URL / NEXT_PUBLIC_SITE_URL.
   DASHBOARD_DOMAIN: sapakerja.com
   API_DOMAIN: api.sapakerja.com
   # Domain lama: tetap dilayani Traefik (tanpa redirect) selama masih ada HP dengan build lama.
   DASHBOARD_DOMAIN_LEGACY: loginrek.bidtech.co.id
   API_DOMAIN_LEGACY: loginrek-api.bidtech.co.id
+  # Analitik & Search Console (nilai publik): atur di GitHub > Settings > Variables > Actions (GTM_ID, GA_ID, GSC_VERIFICATION).
+  # Kosong = tidak dipasang.
+  GA_ID: ${{ vars.GA_ID }}
+  # Google Tag Manager situs publik: bawaan kontainer SapaKerja bila variabel GTM_ID tidak diatur (nilai publik, bukan rahasia).
+  GTM_ID: ${{ vars.GTM_ID || 'GTM-MD232CD5' }}
+  GSC_VERIFICATION: ${{ vars.GSC_VERIFICATION }}
 
 jobs:
   # Deteksi komponen yang berubah. Hanya jalur yang komponennya berubah yang dijalankan.
@@ -151,7 +157,7 @@ jobs:
       - run: go build ./...
 
   check-dashboard:
-    name: Dashboard — lint & build
+    name: Dashboard — lint, typecheck & build
     needs: [changes]
     if: needs.changes.outputs.server == 'true'
     runs-on: ubuntu-latest
@@ -167,7 +173,12 @@ jobs:
           cache-dependency-path: loginrek-dashboard/package-lock.json
       - run: npm ci --no-audit --no-fund
       - run: npm run lint
+      # typecheck menjalankan `next typegen` dulu (membuat next-env.d.ts yang di-gitignore), jadi aman di checkout bersih.
+      - run: npm run typecheck
       - run: npm run build
+        env:
+          NEXT_PUBLIC_API_URL: https://${{ env.API_DOMAIN }}
+          NEXT_PUBLIC_SITE_URL: https://${{ env.DASHBOARD_DOMAIN }}
 
   build:
     name: Build & push image (${{ matrix.app }})
@@ -210,11 +221,26 @@ jobs:
             type=raw,value=${{ steps.vars.outputs.tag }}
             type=raw,value=latest,enable={{is_default_branch}}
 
+      - name: Build args
+        id: bargs
+        run: |
+          {
+            echo 'value<<EOF'
+            if [ "${{ matrix.app }}" = "dashboard" ]; then
+              echo "NEXT_PUBLIC_API_URL=https://$API_DOMAIN"
+              echo "NEXT_PUBLIC_SITE_URL=https://$DASHBOARD_DOMAIN"
+              echo "NEXT_PUBLIC_GA_ID=$GA_ID"
+              echo "NEXT_PUBLIC_GTM_ID=$GTM_ID"
+              echo "NEXT_PUBLIC_GSC_VERIFICATION=$GSC_VERIFICATION"
+            fi
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
       - uses: docker/build-push-action@v7
         with:
           context: loginrek-${{ matrix.app }}
           push: true
-          build-args: ${{ matrix.app == 'dashboard' && format('VITE_API_URL=https://{0}', env.API_DOMAIN) || '' }}
+          build-args: ${{ steps.bargs.outputs.value }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=${{ matrix.app }}
@@ -310,7 +336,11 @@ jobs:
           set_env API_DOMAIN "$API_DOMAIN"
           set_env DASHBOARD_DOMAIN_LEGACY "$DASHBOARD_DOMAIN_LEGACY"
           set_env API_DOMAIN_LEGACY "$API_DOMAIN_LEGACY"
-          set_env VITE_API_URL "https://$API_DOMAIN"
+          set_env NEXT_PUBLIC_API_URL "https://$API_DOMAIN"
+          set_env NEXT_PUBLIC_SITE_URL "https://$DASHBOARD_DOMAIN"
+          set_env NEXT_PUBLIC_GA_ID "$GA_ID"
+          set_env NEXT_PUBLIC_GTM_ID "$GTM_ID"
+          set_env NEXT_PUBLIC_GSC_VERIFICATION "$GSC_VERIFICATION"
           # -- deploy --
           set_env GHCR_OWNER "$GHCR_OWNER"
           set_env IMAGE_TAG "$IMAGE_TAG"

@@ -108,3 +108,8 @@ service-account.json
 # Sertifikat publik (ditanam di app lewat app.json) boleh di-commit; *.pem di atas dikecualikan untuk file ini saja.
 loginrek-mobile/keys/
 !loginrek-mobile/certs/certificate.pem
+
+# Next.js (loginrek-dashboard)
+.next/
+next-env.d.ts
+loginrek-dashboard/AGENTS.md

@@ -1,0 +1,61 @@
+/* Seluruh gaya situs publik SapaKerja (landing, kebijakan privasi, 404): Tailwind CSS v4 (tema + utilitas), reset preflight yang
+   dibatasi ke pembungkus .site, dan gaya dasar. Dimuat oleh root layout untuk semua halaman.
+   Dashboard HR punya CSS sendiri (styles/dashboard.css, dibungkus di bawah kelas .dash) yang hanya dimuat layout dashboard, jadi
+   tidak terkena reset ini. Tautan situs -> dashboard memakai <a> biasa (bukan <Link>).
+   Token berasal dari desain "Landing page — hero mockup aplikasi + fitur". */
+@layer theme, base, components, utilities;
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/utilities.css' layer(utilities) source(none);
+@import './preflight.css';
+@import 'lenis/dist/lenis.css';
+
+@source '../app/page.tsx';
+@source '../app/privacy';
+@source '../app/not-found.tsx';
+@source '../components/site';
+
+@theme static {
+  --font-sans: var(--font-plus-jakarta), 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), 'JetBrains Mono', ui-monospace, monospace;
+
+  --color-ink: #10302e;
+  --color-muted: #3d5755;
+  --color-teal: #0b7f78;
+  --color-teal-dark: #0b6b64;
+  --color-teal-deep: #0c5c55;
+  --color-mint: #d7f5ea;
+  --color-mint-soft: #e3f4ef;
+  --color-panel: #e8f5f1;
+  --color-surface: #f4f8f7;
+  --color-line: #d6e7e0;
+  --color-glow: #6be3c8;
+  --color-night: #0e1716;
+  --color-hero-sub: #e2f6f0;
+  --color-hero-eyebrow: #cdefe7;
+  --color-foot: #c5e3dc;
+  --color-foot-dim: #9fc4bb;
+
+  --breakpoint-nav: 760px;
+  --breakpoint-wide: 1020px;
+}
+
+@layer base {
+  html {
+    scroll-padding-top: 16px;
+  }
+  body {
+    margin: 0;
+  }
+  .site {
+    background: var(--color-surface);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  .site a:focus-visible,
+  .site summary:focus-visible {
+    outline: 3px solid currentColor;
+    outline-offset: 3px;
+    border-radius: 8px;
+  }
+}

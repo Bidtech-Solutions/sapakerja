@@ -8,7 +8,8 @@
 #   docker compose -f docker-compose.prod.yml up -d
 #
 # Traefik (jaringan eksternal `traefik-network`) yang menerima trafik publik:
-#   https://${DASHBOARD_DOMAIN}  -> lr-dashboard  (HR web, mis. sapakerja.com)
+#   https://${DASHBOARD_DOMAIN}  -> lr-dashboard  (Next.js: situs publik di / dan /privacy, dashboard HR di /login, /attendance, /employees,
+#                                                   /settings; mis. sapakerja.com)
 #   https://${API_DOMAIN}        -> lr-backend    (REST API + foto di /uploads/*, mis. api.sapakerja.com)
 # Domain lama (*_LEGACY, mis. loginrek.bidtech.co.id) dilayani langsung oleh container yang sama, TANPA redirect:
 # HP dengan build lama masih memakai API_DOMAIN_LEGACY, dan redirect akan merusak POST + header Authorization.
@@ -38,12 +39,17 @@ services:
     build:
       context: ./loginrek-dashboard
       args:
-        VITE_API_URL: https://${API_DOMAIN:?isi API_DOMAIN di .env}   # dibakar ke bundle saat build
+        # NEXT_PUBLIC_* dibakar ke bundle saat build (identik dengan build-args di CI)
+        NEXT_PUBLIC_API_URL: https://${API_DOMAIN:?isi API_DOMAIN di .env}
+        NEXT_PUBLIC_SITE_URL: https://${DASHBOARD_DOMAIN:?isi DASHBOARD_DOMAIN di .env}
+        NEXT_PUBLIC_GA_ID: ${NEXT_PUBLIC_GA_ID:-}
+        NEXT_PUBLIC_GTM_ID: ${NEXT_PUBLIC_GTM_ID:-}
+        NEXT_PUBLIC_GSC_VERIFICATION: ${NEXT_PUBLIC_GSC_VERIFICATION:-}
     restart: unless-stopped
     logging: *logging
     networks: [ traefik ]
     deploy:
-      resources: { limits: { memory: 128m } }
+      resources: { limits: { memory: 256m } }
     labels:
       - traefik.enable=true
       - traefik.docker.network=traefik-network
@@ -56,7 +62,7 @@ services:
       - traefik.http.middlewares.lr-secure-headers.headers.permissionsPolicy=camera=(), microphone=()
       - traefik.http.middlewares.lr-compress.compress=true
       # --- dashboard ---
-      - traefik.http.services.lr-dashboard.loadbalancer.server.port=80
+      - traefik.http.services.lr-dashboard.loadbalancer.server.port=3000
       - traefik.http.routers.lr-dashboard.rule=Host(`${DASHBOARD_DOMAIN}`) || Host(`${DASHBOARD_DOMAIN_LEGACY:-${DASHBOARD_DOMAIN}}`)
       - traefik.http.routers.lr-dashboard.entrypoints=websecure
       - traefik.http.routers.lr-dashboard.tls.certresolver=letsencrypt

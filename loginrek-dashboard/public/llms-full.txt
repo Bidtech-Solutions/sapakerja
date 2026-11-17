@@ -1,0 +1,429 @@
+# SapaKerja — Konten lengkap / Full content
+
+Sumber / Source: https://sapakerja.com · Maker: Bidtech (https://bidtech.co.id) · Languages: id, en
+
+# Bahasa Indonesia
+
+URL: https://sapakerja.com/
+
+## SapaKerja: Aplikasi Absensi Selfie & GPS untuk Kantor
+
+SapaKerja adalah aplikasi absensi karyawan dengan selfie dan lokasi GPS dari HP. Karyawan absen dalam hitungan detik, HR memantau kehadiran lewat dashboard web. Produk dari Bidtech, tersedia di iPhone dan Android.
+
+Datang Tepat Waktu, Kantor Lebih Teratur
+
+## Semua yang dibutuhkan untuk absen setiap pagi.
+
+Dari selfie di depan kamera sampai rekap bulanan, berikut fitur yang sudah bisa dipakai di aplikasi SapaKerja hari ini.
+
+### Absen cukup dengan sapa kamera.
+
+Karyawan absen dari HP-nya sendiri. Wajah dan lokasi dicek saat itu juga, jadi tidak perlu antre di mesin fingerprint dan tidak bisa dititipkan.
+
+- Bingkai wajah di kamera. Membantu karyawan memposisikan selfie dengan benar.
+- Lokasi dicek otomatis. Terlihat apakah karyawan berada di area kantor, lengkap dengan jaraknya dalam meter.
+- Jam berjalan langsung di layar. Karyawan tahu persis pukul berapa ia absen, dalam WIB.
+- Pengingat pencahayaan. Supaya wajah di foto absen selalu terlihat jelas.
+
+### Cek dulu, kirim, langsung tercatat.
+
+Sebelum dikirim, karyawan bisa melihat fotonya sendiri. Setelah dikirim, jam masuk dan status kehadiran tercatat tanpa perlu dihitung manual.
+
+- Pratinjau foto. Kurang jelas? Tinggal ketuk Foto Ulang.
+- Waktu absen tercatat di server. Jam masuk ditampilkan jelas setelah presensi terkirim.
+- Status otomatis. Tepat Waktu atau Terlambat ditentukan dari jam kerja kantor.
+- Langsung sampai ke HR. Foto dan lokasi GPS tampil di Web Dashboard HR begitu presensi dikirim.
+
+### Status hari ini, sekali lihat.
+
+Begitu aplikasi dibuka, karyawan langsung tahu apakah ia sudah absen hari ini dan bagaimana kehadirannya bulan ini.
+
+- Kartu status harian. Belum Absen, Tepat Waktu, atau Terlambat, dengan warna yang mudah dibedakan.
+- Jam kerja dan waktu masuk. Jam kerja kantor ditampilkan berdampingan dengan jam masuk karyawan.
+- Rekap bulan ini. Jumlah hari tepat waktu dan terlambat, beserta total durasi keterlambatan.
+- Presensi 5 hari terakhir. Catatan jam masuk hari-hari kerja sebelumnya.
+
+### Riwayat kehadiran yang rapi.
+
+Karyawan bisa membuka catatan kehadirannya sendiri kapan saja, tanpa harus bertanya ke HR.
+
+- Pilih bulan. Geser ke bulan sebelumnya untuk melihat catatan lama.
+- Ringkasan bulanan. Jumlah hadir, terlambat, dan tidak hadir dalam satu baris.
+- Aktivitas harian. Setiap hari kerja tercatat dengan jam masuk dan statusnya.
+
+### Akun diurus karyawan sendiri.
+
+Hal-hal kecil soal akun tidak perlu lagi lewat HR atau tim IT.
+
+- Ubah foto profil. Langsung dari kamera atau galeri.
+- Nama terkunci. Nama lengkap mengikuti data dari HR, jadi tidak bisa diubah sembarangan.
+- Ganti kata sandi sendiri. Cukup masukkan kata sandi lama dan yang baru, minimal 8 karakter.
+- Keluar dari akun. Aman saat berganti HP.
+
+## Pertanyaan yang sering diajukan.
+
+### Apa itu SapaKerja?
+
+SapaKerja adalah aplikasi absensi untuk kantor. Karyawan mencatat kehadiran lewat selfie dan lokasi GPS dari HP (iPhone atau Android), sedangkan HR memantau kehadiran lewat dashboard web. SapaKerja adalah produk dari Bidtech.
+
+### Bagaimana cara karyawan absen di SapaKerja?
+
+Karyawan membuka aplikasi, menekan tombol Presensi, mengambil selfie dengan bingkai wajah, lalu mengirimnya. Lokasi dicek otomatis dan jaraknya ke kantor ditampilkan dalam meter. Setelah terkirim, jam masuk dan status kehadiran langsung tercatat.
+
+### Bagaimana status Tepat Waktu atau Terlambat ditentukan?
+
+Statusnya ditentukan otomatis dari jam kerja kantor dan waktu absen yang tercatat di server, sehingga HR tidak perlu menghitungnya secara manual.
+
+### Apa yang bisa dilihat HR dari absensi karyawan?
+
+Begitu presensi dikirim, foto dan lokasi GPS karyawan tampil di Web Dashboard HR bersama jam masuk dan statusnya. Karyawan sendiri bisa membuka riwayat kehadirannya per bulan di aplikasi.
+
+### Apakah SapaKerja tersedia di iPhone dan Android?
+
+Ya. SapaKerja tersedia di App Store untuk iPhone dan di Google Play untuk Android.
+
+### Bagaimana SapaKerja memperlakukan data pribadi karyawan?
+
+Foto presensi hanya dapat diakses oleh HR/admin perusahaan tempat karyawan bekerja dan tidak dibagikan kepada pihak ketiga. SapaKerja tidak melakukan pengenalan wajah. Rinciannya ada di Kebijakan Privasi.
+
+### Bagaimana memulai memakai SapaKerja di kantor kami?
+
+Hubungi tim Bidtech lewat WhatsApp atau email. Kami menjelaskan paket, membantu pengaturan awal, dan menyiapkan demo untuk tim HR Anda. Akun karyawan dibuat oleh HR perusahaan.
+
+### Siapa yang membuat SapaKerja?
+
+SapaKerja dibuat dan dikelola oleh Bidtech (PT Solusi Bisnis Jalanin Aja Dulu), software house di Batam, Kepulauan Riau.
+
+## Mau pakai SapaKerja di kantor Anda?
+
+Tim Bidtech siap menjelaskan paket, membantu pengaturan awal, dan menyiapkan demo untuk tim HR Anda. Sapa kami lewat jalur yang paling nyaman.
+
+- Email: cs@sapakerja.com, cs@bidtech.co.id
+- Nomor 1: +62 821-7601-455 (https://wa.me/628217601455)
+- Nomor 2: +62 819-3018-9008 (https://wa.me/6281930189008)
+- Kantor Bidtech: King Business Centre, Blok A5 No.3, Kel. Belian, Kec. Batam Kota, Batam, 29464
+- App Store: https://apps.apple.com/id/app/id6830986914
+- Google Play: https://play.google.com/store/apps/details?id=id.co.bidtech.loginrek
+
+## Kebijakan Privasi
+
+URL: https://sapakerja.com/privacy · Terakhir diperbarui: 17 November 2026
+
+Kebijakan ini menjelaskan data pribadi apa yang dikumpulkan SapaKerja, untuk apa data itu dipakai, dan bagaimana data tersebut dijaga.
+
+### 1. Pendahuluan
+
+SapaKerja adalah aplikasi absensi karyawan (iOS, Android, dan dashboard web HR) yang dikelola oleh PT Solusi Bisnis Jalanin Aja Dulu dan hanya digunakan oleh karyawan perusahaan. Akun dibuat oleh HR perusahaan; tidak ada pendaftaran mandiri oleh pengguna.
+
+### 2. Data yang dikumpulkan
+
+- Nama lengkap.
+
+- Email (dipakai untuk masuk) dan nomor HP, bila diisi oleh HR.
+
+- Jabatan, departemen, dan status kepegawaian (misalnya karyawan, magang, atau PKL).
+
+- ID akun (nomor induk internal yang dibuat sistem).
+
+- Foto selfie yang diambil saat presensi.
+
+- Foto profil (opsional), dipilih sendiri dari galeri foto.
+
+- Data lokasi presensi: posisi perangkat dibaca saat presensi untuk menghitung jarak ke titik kantor. Yang tersimpan pada catatan presensi adalah hasil verifikasi, yaitu jarak dari kantor (dalam meter), nama kantor, dan koordinat lokasi acuan presensi.
+
+- Waktu presensi dan statusnya (tepat waktu, terlambat), serta penanda bila presensi dikirim belakangan karena perangkat sempat tidak terhubung internet.
+
+- Data teknis: token sesi login yang disimpan di penyimpanan aman perangkat, serta log teknis server (misalnya alamat IP dan waktu akses) untuk keamanan dan pemeliharaan.
+
+Bila perangkat sedang offline, data presensi (waktu, foto, dan lokasi) disimpan sementara di penyimpanan aman perangkat dan dikirim ke server setelah koneksi kembali.
+
+### 3. Foto Presensi (Attendance Photos)
+
+Saat melakukan presensi, SapaKerja mengambil satu foto melalui kamera perangkat sebagai bukti kehadiran di lokasi kantor yang telah ditentukan. Foto dapat menampilkan wajah pengguna, namun SapaKerja tidak melakukan deteksi wajah maupun pengenalan wajah, tidak membuat data biometrik atau pola wajah (face template), dan tidak menganalisis foto secara otomatis. Foto disimpan di server yang dikelola oleh PT Solusi Bisnis Jalanin Aja Dulu, hanya dapat diakses oleh tim HR/admin perusahaan tempat pengguna bekerja, tidak dibagikan kepada pihak ketiga mana pun, dan disimpan selama satu tahun sejak data presensi dibuat sebelum dihapus. Pengguna atau perusahaan dapat meminta penghapusan foto lebih awal dengan menghubungi cs@bidtech.co.id.
+
+(English)
+
+When checking in, SapaKerja captures a single photo through the device camera as proof of attendance at the designated office location. The photo may show the user's face, but SapaKerja does not perform face detection or facial recognition, does not create biometric data or face templates, and does not automatically analyze photos. Photos are stored on servers operated by PT Solusi Bisnis Jalanin Aja Dulu, are only accessible to the HR/admin team of the user's employer, are not shared with any third parties, and are retained for one year after the attendance record is created before being deleted. Users or their employer may request earlier deletion by contacting cs@bidtech.co.id.
+
+### 4. Tujuan penggunaan
+
+- Mencatat dan memverifikasi kehadiran karyawan.
+
+- Menghitung ketepatan waktu kehadiran.
+
+- Menyusun rekap kehadiran bagi HR.
+
+- Mengelola akun karyawan.
+
+Data tidak digunakan untuk iklan, tidak dijual, dan tidak dipakai untuk melacak pengguna lintas aplikasi atau situs web lain. Aplikasi seluler tidak memuat SDK iklan, analitik, atau pelaporan kerusakan (crash reporting) dari pihak ketiga.
+
+### 5. Izin perangkat
+
+- Kamera — mengambil foto selfie untuk presensi.
+
+- Lokasi saat aplikasi digunakan — memastikan Anda berada di area kantor. Lokasi hanya dibaca ketika aplikasi sedang dibuka untuk presensi; aplikasi tidak melacak lokasi di latar belakang.
+
+- Galeri foto — memilih foto untuk mengubah foto profil. Aplikasi hanya memakai foto yang Anda pilih.
+
+Izin diminta tepat sebelum fitur terkait dipakai dan dapat Anda cabut kapan saja lewat pengaturan perangkat. Tanpa izin kamera atau lokasi, presensi tidak dapat dilakukan.
+
+### 6. Siapa yang dapat mengakses
+
+Data presensi dan profil dapat diakses oleh karyawan yang bersangkutan dan oleh admin/HR PT Solusi Bisnis Jalanin Aja Dulu. Data tidak dibagikan kepada pihak ketiga, kecuali bila diwajibkan oleh hukum atau permintaan resmi dari instansi yang berwenang.
+
+Server dan penyimpanan foto dikelola oleh perusahaan. Satu hal yang perlu diketahui: pada dashboard web HR, detail presensi menampilkan peta tersemat dari Google Maps untuk titik lokasi presensi, sehingga Google menerima koordinat titik tersebut dan data teknis peramban admin yang membuka peta.
+
+### 7. Situs web publik sapakerja.com
+
+Bagian ini berlaku bagi pengunjung situs web publik sapakerja.com (halaman perkenalan produk dan halaman ini), bukan bagi pengguna aplikasi.
+
+- Google Tag Manager dan Google Analytics — kami memakai Google Tag Manager untuk memuat alat pengukuran Google Analytics yang mengukur kunjungan, misalnya halaman yang dibuka, perkiraan wilayah, jenis perangkat, dan peramban. Google dapat menyimpan cookie atau pengenal serupa di peramban Anda. Data ini bersifat statistik dan tidak dipakai untuk mengenali Anda secara pribadi.
+
+- Google Maps — bagian Kontak menampilkan peta tersemat lokasi kantor Bidtech. Saat peta dimuat, Google menerima data teknis peramban Anda (misalnya alamat IP).
+
+- Huruf (font) — huruf situs ini disajikan dari server kami sendiri, bukan dari Google Fonts.
+
+- Situs ini tidak meminta Anda mengisi data pribadi. Bila Anda menghubungi kami lewat WhatsApp atau email, data yang Anda kirim kami pakai hanya untuk menanggapi pesan tersebut.
+
+Anda dapat menolak atau menghapus cookie lewat pengaturan peramban, atau memasang pengaya penolak Google Analytics.
+
+### 8. Penyimpanan dan keamanan
+
+- Data dikirim antara aplikasi/dashboard dan server melalui HTTPS.
+
+- Kata sandi disimpan dalam bentuk hash, bukan teks asli.
+
+- Akses ke data dibatasi berdasarkan akun dan peran (karyawan atau HR).
+
+- Foto disimpan di penyimpanan objek pada server perusahaan.
+
+- Token login di perangkat disimpan di penyimpanan aman sistem (Keychain/Keystore).
+
+Tidak ada sistem yang sepenuhnya bebas risiko, tetapi kami berupaya menjaga data dengan langkah teknis yang wajar.
+
+### 9. Retensi data
+
+Data disimpan selama karyawan aktif dan selama diperlukan untuk keperluan kepegawaian serta kewajiban hukum perusahaan. Setelah itu, data dihapus atau dianonimkan.
+
+### 10. Hak karyawan
+
+Anda dapat meminta akses, koreksi, atau penghapusan data pribadi Anda melalui HR perusahaan atau melalui email cs@bidtech.co.id. Pengelolaan data pribadi ini mengacu pada Undang-Undang Nomor 27 Tahun 2022 tentang Pelindungan Data Pribadi.
+
+### 11. Anak-anak
+
+Aplikasi ini tidak ditujukan untuk anak di bawah 13 tahun. Seluruh akun dibuat dan dikelola oleh HR perusahaan; tidak ada pendaftaran mandiri.
+
+### 12. Perubahan kebijakan dan kontak
+
+Kebijakan ini dapat diperbarui sewaktu-waktu. Tanggal pembaruan terakhir tercantum di bagian atas halaman ini. Untuk pertanyaan tentang kebijakan ini, hubungi kami:
+
+# English
+
+URL: https://sapakerja.com/ (English, bila perangkat berbahasa Inggris / shown when the device language is not Indonesian)
+
+## SapaKerja: Selfie & GPS Attendance App for Offices
+
+SapaKerja is an employee attendance app with selfie and GPS location from the phone. Employees check in within seconds, and HR monitors attendance on a web dashboard. A product of Bidtech, available on iPhone and Android.
+
+Arrive On Time, Run a More Organized Office
+
+## Everything you need to check in every morning.
+
+From a selfie in front of the camera to the monthly recap, here are the features you can already use in the SapaKerja app today.
+
+### Check in by saying hi to the camera.
+
+Employees check in from their own phone. Face and location are checked on the spot, so there is no queue at the fingerprint machine and nobody can check in for a colleague.
+
+- Face frame on the camera. Helps employees position their selfie correctly.
+- Location checked automatically. Shows whether the employee is within the office area, including the distance in metres.
+- Live clock on screen. Employees know exactly what time they check in, in WIB.
+- Lighting reminder. So the face in the attendance photo is always clearly visible.
+
+### Check, submit, instantly recorded.
+
+Before submitting, employees can review their own photo. Once sent, the check-in time and attendance status are recorded with no manual calculation.
+
+- Photo preview. Not clear enough? Just tap Retake.
+- Check-in time recorded on the server. The check-in time is shown clearly once the attendance is submitted.
+- Automatic status. On Time or Late is determined from the office working hours.
+- Straight to HR. The photo and GPS location appear on the HR Web Dashboard as soon as attendance is submitted.
+
+### Today's status at a glance.
+
+As soon as the app opens, employees know whether they have checked in today and how their attendance looks this month.
+
+- Daily status card. Not Checked In, On Time, or Late, in colours that are easy to tell apart.
+- Working hours and check-in time. The office working hours are shown next to the employee's check-in time.
+- This month's recap. The number of on-time and late days, plus the total duration of lateness.
+- Last 5 days of attendance. Check-in times from the previous working days.
+
+### Attendance history, neatly kept.
+
+Employees can open their own attendance records at any time, without having to ask HR.
+
+- Pick a month. Go back to previous months to see older records.
+- Monthly summary. Present, late, and absent counts in a single row.
+- Daily activity. Every working day is logged with its check-in time and status.
+
+### Employees manage their own account.
+
+Small account tasks no longer need to go through HR or the IT team.
+
+- Change profile photo. Straight from the camera or gallery.
+- Locked name. The full name follows the data from HR, so it cannot be changed casually.
+- Change your own password. Just enter the old and new password, at least 8 characters.
+- Sign out. Safe when switching phones.
+
+## Frequently asked questions.
+
+### What is SapaKerja?
+
+SapaKerja is an attendance app for offices. Employees record attendance with a selfie and GPS location from their phone (iPhone or Android), while HR monitors attendance on a web dashboard. SapaKerja is a product of Bidtech.
+
+### How do employees check in with SapaKerja?
+
+Employees open the app, tap Check-in, take a selfie within the face frame, and submit it. The location is checked automatically and the distance to the office is shown in metres. Once submitted, the check-in time and attendance status are recorded right away.
+
+### How is the On Time or Late status determined?
+
+The status is determined automatically from the office working hours and the check-in time recorded on the server, so HR does not have to calculate it manually.
+
+### What can HR see of an employee's attendance?
+
+As soon as attendance is submitted, the employee's photo and GPS location appear on the HR Web Dashboard together with the check-in time and status. Employees can open their own monthly attendance history in the app.
+
+### Is SapaKerja available on iPhone and Android?
+
+Yes. SapaKerja is available on the App Store for iPhone and on Google Play for Android.
+
+### How does SapaKerja handle employees' personal data?
+
+Attendance photos can only be accessed by the HR/admin team of the employee's company and are not shared with third parties. SapaKerja does not perform facial recognition. The details are in the Privacy Policy.
+
+### How do we start using SapaKerja in our office?
+
+Contact the Bidtech team via WhatsApp or email. We explain the plans, help with the initial setup, and prepare a demo for your HR team. Employee accounts are created by the company HR.
+
+### Who makes SapaKerja?
+
+SapaKerja is built and operated by Bidtech (PT Solusi Bisnis Jalanin Aja Dulu), a software house in Batam, Riau Islands, Indonesia.
+
+## Want to use SapaKerja in your office?
+
+The Bidtech team is ready to explain the plans, help with the initial setup, and prepare a demo for your HR team. Say hi through whichever channel suits you best.
+
+- Email: cs@sapakerja.com, cs@bidtech.co.id
+- Number 1: +62 821-7601-455 (https://wa.me/628217601455)
+- Number 2: +62 819-3018-9008 (https://wa.me/6281930189008)
+- Bidtech Office: King Business Centre, Block A5 No.3, Belian, Batam Kota, Batam, 29464, Indonesia
+- App Store: https://apps.apple.com/id/app/id6830986914
+- Google Play: https://play.google.com/store/apps/details?id=id.co.bidtech.loginrek
+
+## Privacy Policy
+
+URL: https://sapakerja.com/privacy (English) · Last updated: 17 November 2026
+
+This policy explains what personal data SapaKerja collects, what it is used for, and how it is protected.
+
+### 1. Introduction
+
+SapaKerja is an employee attendance app (iOS, Android, and an HR web dashboard) operated by PT Solusi Bisnis Jalanin Aja Dulu and used only by company employees. Accounts are created by the company HR; users cannot sign up on their own.
+
+### 2. Data we collect
+
+- Full name.
+
+- Email (used to sign in) and phone number, if provided by HR.
+
+- Job title, department, and employment status (for example employee, intern, or vocational trainee).
+
+- Account ID (an internal number generated by the system).
+
+- The selfie photo taken when checking in.
+
+- Profile photo (optional), chosen by the user from the photo gallery.
+
+- Attendance location data: the device position is read at check-in to calculate the distance to the office point. What is stored in the attendance record is the verification result: the distance from the office (in metres), the office name, and the coordinates of the reference location.
+
+- Attendance time and status (on time, late), plus a flag when attendance was submitted later because the device was offline.
+
+- Technical data: the login session token stored in the device secure storage, and technical server logs (for example IP address and access time) for security and maintenance.
+
+When the device is offline, attendance data (time, photo, and location) is temporarily kept in the device secure storage and sent to the server once the connection is back.
+
+### 3. Attendance Photos
+
+When checking in, SapaKerja captures a single photo through the device camera as proof of attendance at the designated office location. The photo may show the user's face, but SapaKerja does not perform face detection or facial recognition, does not create biometric data or face templates, and does not automatically analyze photos. Photos are stored on servers operated by PT Solusi Bisnis Jalanin Aja Dulu, are only accessible to the HR/admin team of the user's employer, are not shared with any third parties, and are retained for one year after the attendance record is created before being deleted. Users or their employer may request earlier deletion by contacting cs@bidtech.co.id.
+
+### 4. How we use data
+
+- Recording and verifying employee attendance.
+
+- Calculating attendance punctuality.
+
+- Compiling attendance recaps for HR.
+
+- Managing employee accounts.
+
+Data is not used for advertising, is not sold, and is not used to track users across other apps or websites. The mobile app does not include third-party advertising, analytics, or crash-reporting SDKs.
+
+### 5. Device permissions
+
+- Camera — to take the selfie photo for attendance.
+
+- Location while using the app — to confirm you are within the office area. Location is only read while the app is open for check-in; the app does not track location in the background.
+
+- Photo gallery — to choose a photo for your profile picture. The app only uses the photo you pick.
+
+Permissions are requested right before the related feature is used and can be revoked at any time in your device settings. Without camera or location permission, attendance cannot be recorded.
+
+### 6. Who can access the data
+
+Attendance and profile data can be accessed by the employee concerned and by the admin/HR of PT Solusi Bisnis Jalanin Aja Dulu. Data is not shared with third parties, except where required by law or an official request from an authorised agency.
+
+The servers and photo storage are managed by the company. One thing worth knowing: on the HR web dashboard, the attendance detail shows an embedded Google Maps map of the check-in location, so Google receives the coordinates of that point and technical data from the browser of the admin who opens the map.
+
+### 7. The public website sapakerja.com
+
+This section applies to visitors of the public website sapakerja.com (the product introduction pages and this page), not to app users.
+
+- Google Tag Manager and Google Analytics — we use Google Tag Manager to load the Google Analytics measurement tool, which measures visits, for example the pages opened, approximate region, device type, and browser. Google may store cookies or similar identifiers in your browser. This data is statistical and is not used to identify you personally.
+
+- Google Maps — the Contact section shows an embedded map of the Bidtech office. When the map loads, Google receives technical data from your browser (for example your IP address).
+
+- Fonts — the fonts on this site are served from our own server, not from Google Fonts.
+
+- This site does not ask you to enter personal data. If you contact us via WhatsApp or email, we only use the data you send to respond to that message.
+
+You can refuse or delete cookies in your browser settings, or install the Google Analytics opt-out browser add-on.
+
+### 8. Storage and security
+
+- Data is sent between the app/dashboard and the server over HTTPS.
+
+- Passwords are stored as hashes, not plain text.
+
+- Access to data is restricted by account and role (employee or HR).
+
+- Photos are stored in object storage on the company server.
+
+- The login token on the device is kept in the system secure storage (Keychain/Keystore).
+
+No system is entirely free of risk, but we work to protect data with reasonable technical measures.
+
+### 9. Data retention
+
+Data is kept while the employee is active and for as long as needed for employment purposes and the company legal obligations. After that, data is deleted or anonymised.
+
+### 10. Employee rights
+
+You may request access to, correction of, or deletion of your personal data through your company HR or by email at cs@bidtech.co.id. The handling of this personal data follows Indonesian Law No. 27 of 2022 on Personal Data Protection.
+
+### 11. Children
+
+This app is not intended for children under 13. All accounts are created and managed by the company HR; there is no self sign-up.
+
+### 12. Policy changes and contact
+
+This policy may be updated from time to time. The date of the latest update is shown at the top of this page. For questions about this policy, contact us:

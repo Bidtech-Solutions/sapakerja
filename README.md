@@ -8,7 +8,7 @@ memantau dan mengelola data lewat dashboard web; keduanya memakai satu REST API.
 | Folder | Isi | Stack |
 | ------ | --- | ----- |
 | `loginrek-backend/` | REST API (`/api/v1`, port 3333) | Go + Gin, GORM, PostgreSQL / SQLite fallback, RustFS/S3 |
-| `loginrek-dashboard/` | Web Dashboard Admin (port 5173) | React 19 + Vite, Leaflet |
+| `loginrek-dashboard/` | Situs publik SapaKerja + Web Dashboard HR (port 5173) | Next.js 16 (App Router), Tailwind CSS v4, Motion, Lenis |
 | `loginrek-mobile/` | Aplikasi Karyawan (iOS & Android) | React Native + Expo SDK (Expo Router, EAS Build) |
 
 ```
@@ -60,7 +60,8 @@ Jalankan tiap sistem di terminal masing-masing:
    npm install
    npm run dev
    ```
-   Alamat API diatur lewat `VITE_API_URL` (default `http://localhost:3333`).
+   Situs publik di `http://localhost:5173`, dashboard HR di `http://localhost:5173/login`.
+   Alamat API diatur lewat `NEXT_PUBLIC_API_URL` (default `http://localhost:3333`).
 3. **Mobile** — port 8081, scan QR dengan Expo Go
    ```bash
    cd loginrek-mobile
@@ -79,7 +80,7 @@ Jalankan tiap sistem di terminal masing-masing:
    docker compose logs -f backend         # akun seed dibuat saat database masih kosong
    ```
    Dashboard `http://localhost:5173` (login dengan `SEED_ADMIN_*`), API `http://localhost:3333/health`.
-   `VITE_API_URL` dibakar saat build — ubah di `.env` lalu `docker compose up -d --build dashboard`.
+   `NEXT_PUBLIC_*` dibakar saat build — ubah di `.env` lalu `docker compose up -d --build dashboard`.
 2. **Izinkan HP mengakses PC.** Port 3333 sudah terbuka ke semua interface, tetapi Windows Firewall
    memblokir koneksi masuk di jaringan bertipe *Public*. Di PowerShell **sebagai Administrator**:
    ```powershell
@@ -143,47 +144,61 @@ loginrek-backend/
 
 ---
 
-## Dashboard (`loginrek-dashboard`)
+## Situs publik & Dashboard (`loginrek-dashboard`)
 
-Portal web untuk HR dan manajemen presensi: **React 19 + Vite + Leaflet**.
+Satu aplikasi **Next.js 16 (App Router)** berisi dua hal:
 
-- **Live attendance monitoring** — rekap presensi harian karyawan.
-- **Peta interaktif (Leaflet)** — titik lokasi presensi beserta radius geofencing kantor.
-- **Manajemen karyawan (CRUD)** — data pegawai, jabatan, departemen, foto profil.
-- **Pengaturan** — radius presensi, toleransi keterlambatan, jam kerja.
-- **Integrasi backend** — memakai REST API `loginrek-backend` lewat `VITE_API_URL` (`src/config.js`).
+**1. Situs publik SapaKerja** (landing page, dua bahasa mengikuti bahasa perangkat) — Tailwind CSS v4, animasi Motion, scroll halus Lenis.
 
-Rute (React Router, `BrowserRouter`):
+| URL | Halaman |
+| --- | ------- |
+| `/` | beranda (Indonesia atau English menurut perangkat/pilihan pengunjung), kontak + Google Maps, tombol App Store/Google Play |
+| `/privacy` | Kebijakan Privasi (URL untuk App Store Connect / Google Play) |
+| `/robots.txt`, `/sitemap.xml`, `/llms.txt`, `/llms-full.txt`, `/.well-known/security.txt` | SEO, AEO, GEO, keamanan |
+
+SEO: metadata menurut bahasa permintaan, canonical, Open Graph (gambar statis `public/images/og-{id,en}.png`), JSON-LD (Organization/Bidtech, WebSite,
+MobileApplication, FAQPage), Google Tag Manager / Google Analytics 4 dan verifikasi Search Console lewat env (lihat `.env.example`).
+
+**2. Dashboard HR** (wajib login, `noindex`) — memakai REST API `loginrek-backend` lewat `NEXT_PUBLIC_API_URL`.
 
 | URL | Halaman |
 | --- | ------- |
 | `/login` | login admin |
-| `/attendance`, `/attendance/:recordId` | riwayat absensi, detail presensi |
+| `/attendance`, `/attendance/:id` | riwayat absensi, detail presensi (peta Google Maps tersemat) |
 | `/employees`, `/employees/new`, `/employees/:id/edit` | daftar, tambah, ubah karyawan |
 | `/settings` | pengaturan akun |
 
-Semua rute selain `/login` wajib login (redirect ke `/login`, lalu kembali ke halaman tujuan).
+Tautan lama `/dashboard/...` dialihkan ke alamat di atas.
 
 ```bash
-npm run dev       # dev server (5173)
-npm run build     # bundle produksi -> dist/
-npm run preview   # preview hasil build
-npm run lint
+npm run dev         # dev server (5173)
+npm run build       # build produksi (.next/, mode standalone)
+npm run start       # jalankan hasil build
+npm run lint && npm run typecheck
 ```
 
 ```
-loginrek-dashboard/
-├── public/             # aset statis, favicon, avatar default
-├── src/
-│   ├── assets/         # gambar & logo
-│   ├── components/     # halaman (Attendance, Employees, Settings, Login), Sidebar, DashboardLayout
-│   ├── data/           # mock data & state fallback
-│   ├── config.js       # API_ORIGIN / API_BASE dari VITE_API_URL
-│   ├── App.jsx         # state data + definisi rute (React Router)
-│   └── main.jsx        # entrypoint Vite
-├── Dockerfile
-├── package.json
-└── vite.config.js
+loginrek-dashboard/            # tanpa folder src/
+├── app/
+│   ├── layout.tsx             # SATU root layout (<html lang> dari cookie/bahasa perangkat)
+│   ├── page.tsx               # beranda (landing): semua bagiannya di satu berkas
+│   ├── privacy/page.tsx       # kebijakan privasi
+│   ├── (dashboard)/           # dashboard HR: layout, login, attendance[/[id]], employees[/new|/[id]/edit], settings
+│   ├── not-found.tsx
+│   └── robots.ts, sitemap.ts
+├── styles/                    # globals.css (Tailwind v4 + gaya dasar situs), preflight.css (reset terbatas .site), dashboard.css (dashboard, di bawah .dash)
+├── i18n/                      # index.ts, id.ts, en.ts (kamus), locale.ts + server.ts (pilih bahasa menurut cookie/perangkat)
+├── lib/
+│   ├── metadata.ts, schema.ts # SEO: isi <head> (judul, OG, canonical) dan JSON-LD
+│   ├── api.ts                 # klien REST dashboard (+ URL API)
+│   ├── types.ts               # SATU-SATUNYA berkas tipe lib/ (i18n + dashboard)
+│   └── site.ts                # URL toko, kontak, alamat, GA/GSC
+├── components/
+│   ├── site/                  # SiteShell.tsx (SiteShell + JsonLd), motion.tsx (semua kode 'use client' situs publik: animasi, carousel, LanguageSwitch)
+│   └── dashboard/             # AdminProvider.tsx, DashboardShell.tsx (kerangka + Sidebar), Session.tsx (SessionCheck + Redirect)
+├── public/                    # images/ (SEMUA gambar, datar: logo, favicon, badge, mockup layar .webp, OG, default-avatar.webp), health.json (healthcheck Docker), llms.txt, llms-full.txt, .well-known/security.txt
+├── next.config.mjs, postcss.config.mjs, tsconfig.json
+└── Dockerfile
 ```
 
 ---

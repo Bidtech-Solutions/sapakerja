@@ -1,0 +1,39 @@
+# SapaKerja
+
+> SapaKerja adalah aplikasi absensi karyawan dengan selfie dan lokasi GPS dari HP. Karyawan absen dalam hitungan detik, HR memantau kehadiran lewat dashboard web. Produk dari Bidtech, tersedia di iPhone dan Android.
+
+SapaKerja is an employee attendance app with selfie and GPS location from the phone. Employees check in within seconds, and HR monitors attendance on a web dashboard. A product of Bidtech, available on iPhone and Android.
+
+SapaKerja adalah produk Bidtech (PT Solusi Bisnis Jalanin Aja Dulu), Batam, Kepulauan Riau, Indonesia / is a product of Bidtech. Situs tersedia dalam Bahasa Indonesia dan English / The site is available in Indonesian and English.
+
+## Halaman / Pages
+
+- [SapaKerja: Aplikasi Absensi Selfie & GPS untuk Kantor](https://sapakerja.com/): Buka kamera, kirim presensi, selesai. Riwayat kehadiran tersimpan rapi untuk karyawan dan HR. / Open the camera, submit your attendance, done. Attendance history stays neatly organised for employees and HR.
+- [Kebijakan Privasi / Privacy Policy](https://sapakerja.com/privacy): Kebijakan Privasi aplikasi absensi SapaKerja: data apa yang dikumpulkan, tujuan penggunaan, izin perangkat, penyimpanan, dan hak karyawan. / Privacy Policy of the SapaKerja attendance app: what data is collected, how it is used, device permissions, storage, and employee rights.
+
+Bahasa halaman mengikuti bahasa perangkat pengunjung (Indonesia bawaan, English bila perangkat berbahasa lain) pada URL yang sama. / The page language follows the visitor's device language (Indonesian by default, English for other device languages) on the same URL.
+
+## Unduh / Download
+
+- [App Store (iPhone)](https://apps.apple.com/id/app/id6830986914)
+- [Google Play (Android)](https://play.google.com/store/apps/details?id=id.co.bidtech.loginrek)
+
+## Fitur / Features
+
+- Absen cukup dengan sapa kamera. / Check in by saying hi to the camera. — Karyawan absen dari HP-nya sendiri. Wajah dan lokasi dicek saat itu juga, jadi tidak perlu antre di mesin fingerprint dan tidak bisa dititipkan.
+- Cek dulu, kirim, langsung tercatat. / Check, submit, instantly recorded. — Sebelum dikirim, karyawan bisa melihat fotonya sendiri. Setelah dikirim, jam masuk dan status kehadiran tercatat tanpa perlu dihitung manual.
+- Status hari ini, sekali lihat. / Today's status at a glance. — Begitu aplikasi dibuka, karyawan langsung tahu apakah ia sudah absen hari ini dan bagaimana kehadirannya bulan ini.
+- Riwayat kehadiran yang rapi. / Attendance history, neatly kept. — Karyawan bisa membuka catatan kehadirannya sendiri kapan saja, tanpa harus bertanya ke HR.
+- Akun diurus karyawan sendiri. / Employees manage their own account. — Hal-hal kecil soal akun tidak perlu lagi lewat HR atau tim IT.
+
+## Kontak / Contact
+
+- Email: cs@sapakerja.com, cs@bidtech.co.id
+- WhatsApp: +62 821-7601-455 (https://wa.me/628217601455)
+- WhatsApp: +62 819-3018-9008 (https://wa.me/6281930189008)
+- Kantor Bidtech / Office: King Business Centre, Blok A5 No.3, Kel. Belian, Kec. Batam Kota, Batam, 29464
+
+## Optional
+
+- [Full content / Konten lengkap](https://sapakerja.com/llms-full.txt): seluruh teks situs dalam dua bahasa
+- [Bidtech](https://bidtech.co.id): pembuat SapaKerja / maker of SapaKerja

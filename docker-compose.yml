@@ -5,7 +5,7 @@
 #   docker compose up -d postgres rustfs    # hanya infra (backend/dashboard lewat go run / npm run dev)
 #
 #   Backend   : http://localhost:3333   (juga http://<IP-PC>:3333 untuk HP di Wi-Fi yang sama)
-#   Dashboard : http://localhost:5173
+#   Dashboard : http://localhost:5173   (situs publik di /, dashboard HR di /login)
 #
 # Nilai dibaca dari .env di root (lihat .env.example). Aplikasi mobile tidak ada di sini:
 # jalankan dengan `npm run dev` (Expo Go) atau bangun APK dengan EAS (lihat README).
@@ -102,11 +102,16 @@ services:
     build:
       context: ./loginrek-dashboard
       args:
-        VITE_API_URL: ${VITE_API_URL:-http://localhost:3333}   # dibakar ke bundle saat build
+        # NEXT_PUBLIC_* dibakar ke bundle saat build
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3333}
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:5173}
+        NEXT_PUBLIC_GA_ID: ${NEXT_PUBLIC_GA_ID:-}
+        NEXT_PUBLIC_GTM_ID: ${NEXT_PUBLIC_GTM_ID:-}
+        NEXT_PUBLIC_GSC_VERIFICATION: ${NEXT_PUBLIC_GSC_VERIFICATION:-}
     container_name: loginrek-dev-dashboard
     restart: unless-stopped
     ports:
-      - "5173:80"
+      - "5173:3000"
     depends_on:
       - backend
 
