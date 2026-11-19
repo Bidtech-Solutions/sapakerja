@@ -261,6 +261,11 @@ const en: Translation = {
     channelInfo: 'Info',
   },
 
+  startupUpdate: {
+    title: 'Preparing update…',
+    hint: 'Please wait a moment, the app will restart automatically.',
+  },
+
   appInfo: {
     label: 'App version information',
     embedded: 'Built-in',

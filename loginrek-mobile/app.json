@@ -10,6 +10,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "id.co.bidtech.loginrek",
+      "usesAppleSignIn": true,
       "buildNumber": "3",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
@@ -129,7 +130,21 @@
           ]
         }
       ],
-      "expo-status-bar"
+      "expo-status-bar",
+      "expo-apple-authentication",
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.307840385367-u28qonfbb11o69kjjviqib135r1el451"
+        }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": false
+        }
+      ],
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true

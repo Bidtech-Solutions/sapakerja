@@ -192,10 +192,20 @@ HP ──GET /updates/files/…──► bundle & aset (immutable)
   `publishId` (atau "Bawaan build" bila belum ada update OTA) di layar Profil (`profile.tsx`). Rilis sebelum penanda ini ditambahkan
   tidak punya `publishId`; aplikasi menampilkan 8 karakter pertama `updateId` sebagai gantinya.
 
-- **Update di latar belakang** (bawaan expo-updates, tanpa kode tambahan): `checkAutomatically` dan `fallbackToCacheTimeout` tidak di-override di
-  `app.json` (bawaan: `ON_LOAD` dan `0`). Aplikasi langsung terbuka dengan bundle yang ada, tanpa layar loading; update diunduh di latar
-  belakang dan dipakai pada pembukaan berikutnya. Konsekuensinya, install baru memakai bundle bawaan di peluncuran pertama dan OTA terbaru
-  baru aktif di peluncuran kedua. Sengaja dipilih demi UX: pengguna tidak pernah menunggu. Jangan menambah gate/layar pembaruan saat startup.
+- **Update saat startup** (`src/lib/startup-update.ts`, dipanggil dari `src/app/_layout.tsx`): dua jalur, dibedakan oleh **penanda first-run**.
+  - **Pembukaan pertama di sebuah build native** (install baru, install ulang setelah uninstall, atau update dari store): `runStartupUpdate()`
+    memanggil `checkForUpdateAsync` (timeout 6 dtk), bila ada `fetchUpdateAsync` (timeout 15 dtk), lalu `reloadAsync` dan aplikasi restart dengan
+    bundle terbaru. Splash native ditahan; bila proses melewati ~500 ms, layar "Menyiapkan pembaruan…" (`UpdateScreen`, di `_layout.tsx`)
+    tampil sampai restart. Offline, timeout, atau error apa pun → aplikasi lanjut dengan bundle yang ada (tidak pernah memunculkan error ke UI).
+  - **Pembukaan berikutnya di build yang sama**: tidak ada akses jaringan di jalur startup; aplikasi langsung terbuka. Update diunduh di latar
+    belakang oleh expo-updates sendiri (`checkAutomatically` dan `fallbackToCacheTimeout` tidak di-override di `app.json`: `ON_LOAD` dan `0`)
+    dan dipakai pada pembukaan berikutnya.
+  - **Penanda first-run**: kunci `loginrek.startup-update.build` di `expo-sqlite/kv-store`, bernilai `<nativeApplicationVersion>+<nativeBuildVersion>`.
+    Bukan SecureStore, karena Keychain iOS bisa bertahan setelah uninstall sehingga install ulang tidak terdeteksi. Penanda disimpan **sebelum**
+    `reloadAsync` dan juga di jalur gagal, supaya tidak ada loop restart atau layar loading di setiap buka. Storage yang gagal dibaca dianggap
+    bukan first-run. Versi atau nomor build native yang berbeda = first-run lagi. Tidak aktif di `__DEV__` atau saat `Updates.isEnabled` false.
+  - **Catatan rilis**: pengguna baru dari store hanya merasakan layar ini di buka pertama bila build store yang mereka pasang **sudah memuat kode ini**;
+    build lama tetap memakai perilaku latar belakang saja. Pengujian: `npm test` (`src/lib/__tests__/startup-update.test.ts`).
 
 **Cara rilis** — otomatis saat commit di `loginrek-mobile/` masuk `main`. Pantau di Actions → `loginrek` → `Publish OTA`.
 
@@ -207,10 +217,16 @@ HP ──GET /updates/files/…──► bundle & aset (immutable)
    remote EAS (`appVersionSource: remote` + `autoIncrement`).
 2. `build-android` (ubuntu) dan `build-ios` (macOS) menjalankan `eas build --local` di runner GitHub: tidak memakai kuota build cloud EAS,
    tetapi memakan menit Actions (macOS lebih mahal pada repo privat).
-3. `submit-android` / `submit-ios`: `eas submit` ke Play track `internal` (draft) dan TestFlight. Release notes, memilih build, dan kirim ke review
+   **Cadangan per platform**: bila `build-android` (runner Linux) atau `build-ios` (macOS) **gagal**, job `build-android-cloud` / `build-ios-cloud`
+   membangun platform itu di EAS cloud (akun Expo pemilik `EXPO_TOKEN`, kredensial dari EAS) dan langsung men-submit build itu dengan `eas submit --id`.
+   Hanya berjalan saat build lokal platform tersebut gagal (bukan dibatalkan/dilewati); memakai kuota build cloud EAS dan bisa mengantre.
+   Run tetap berstatus gagal (merah) karena build lokalnya gagal, tetapi ringkasannya mencatat bahwa cadangan dipakai.
+3. `submit-android` / `submit-ios`: `eas submit` ke Play track `internal` (draft) dan TestFlight. Keduanya otomatis berjalan bila build lokal platformnya sukses;
+   bila yang dipakai build cadangan, submit sudah dilakukan di dalam job `*-cloud`. Release notes, memilih build, dan kirim ke review
    tetap manual di Play Console / App Store Connect.
-4. `rebase-native`: setelah **kedua** build sukses, acuan native versi itu disimpan di VPS sehingga OTA untuk versi tersebut otomatis boleh.
-   Bila salah satu build gagal, acuan tidak ditulis; run ulang memakai versi yang sama (tidak naik lagi).
+4. `rebase-native`: setelah Android **dan** iOS sukses (masing-masing lokal, atau lokal gagal lalu cadangan cloud sukses), acuan native versi itu disimpan
+   di VPS sehingga OTA untuk versi tersebut otomatis boleh. Bila salah satu platform gagal di kedua jalurnya, acuan tidak ditulis; run ulang memakai
+   versi yang sama (tidak naik lagi).
 
 Tambahkan `[skip build]` di pesan commit (commit terakhir pada push) untuk melewati build native. Jangan push commit native bertubi-tubi saat build berjalan.
 Prasyarat: secret `EXPO_TOKEN` (Environment `production`); kredensial store tersimpan di EAS (kunci App Store Connect API, service account Google Play);

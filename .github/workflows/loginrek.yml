@@ -14,9 +14,12 @@
 #   publish-ota : (native-check = same) export bundle loginrek-mobile, buat manifest + tanda
 #             tangan code signing, kirim ke VPS -> disajikan backend di /updates/*.
 #             Berjalan OTOMATIS bila loginrek-mobile berubah, PARALEL dengan jalur server.
-#   bump-version, build-android, build-ios, submit-android, submit-ios, rebase-native :
+#   bump-version, build-android, build-ios, build-android-cloud, build-ios-cloud, submit-android, submit-ios,
+#   rebase-native :
 #             (native-check = changed/missing) naikkan versi patch bila perlu, build eas --local,
-#             submit ke TestFlight + Play internal, lalu simpan acuan native versi baru. Lihat bagian
+#             submit ke TestFlight + Play internal, lalu simpan acuan native versi baru. Bila build lokal
+#             (Android di runner Linux, iOS di runner macOS) gagal, job *-cloud membangun di EAS cloud
+#             lalu submit. Lihat bagian
 #             "BUILD NATIVE" di bawah. Lewati dengan "[skip build]" di pesan commit.
 #
 # Contoh: commit yang hanya mengubah loginrek-mobile -> hanya publish-ota (backend dan
@@ -906,8 +909,11 @@ jobs:
   #   bump-version  : changed -> naikkan patch (app.json + package.json), commit balik ke main; missing -> versi apa adanya
   #   build-android : eas build --local (ubuntu)  -> artefak .aab
   #   build-ios     : eas build --local (macOS)   -> artefak .ipa
+  #   build-android-cloud / build-ios-cloud : CADANGAN, hanya bila build lokal platform itu gagal: eas build di EAS cloud
+  #                   (akun Expo EXPO_TOKEN) lalu langsung eas submit ke Play internal / TestFlight (memakai kuota build cloud EAS)
   #   submit-*      : eas submit -> TestFlight / Play track internal (draft). Rilis ke pengguna tetap manual.
-  #   rebase-native : setelah KEDUA build sukses, simpan acuan native versi ini di VPS (OTA berikutnya boleh jalan)
+  #   rebase-native : setelah build Android DAN build iOS (masing-masing lokal atau cadangan cloud) sukses, simpan acuan native versi ini
+  #                   di VPS (OTA berikutnya boleh jalan)
   # Nomor build (buildNumber/versionCode) diurus counter remote EAS (eas.json: appVersionSource remote + autoIncrement).
   # Secret/prasyarat: EXPO_TOKEN (Environment production); kredensial store (App Store Connect API key, Google Play
   # service account) tersimpan di EAS; variabel repo ASC_APP_ID (ID numerik app di App Store Connect).
@@ -1016,6 +1022,62 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  # Cadangan: hanya jalan bila build Android lokal (runner Linux) GAGAL (bukan dibatalkan/dilewati). Build dibuat di server EAS
+  # (akun Expo pemilik EXPO_TOKEN, keystore dari EAS), lalu langsung di-submit ke Play (internal) dengan build id yang sama.
+  # Memakai kuota build cloud EAS dan bisa mengantre. Submit mengikuti aturan yang sama dengan submit-android
+  # (dilewati bila run manual dengan submit=false).
+  build-android-cloud:
+    name: Build Android cadangan (EAS cloud) + submit
+    needs: [bump-version, build-android]
+    if: ${{ always() && needs.bump-version.result == 'success' && needs.build-android.result == 'failure' }}
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 150
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: loginrek-mobile
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.bump-version.outputs.sha }}
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: loginrek-mobile/package-lock.json
+
+      - name: Cek EXPO_TOKEN
+        run: '[ -n "$EXPO_TOKEN" ] || { echo "::error::Secret EXPO_TOKEN belum diisi (Environment production)."; exit 1; }'
+
+      - run: npm ci --no-audit --no-fund
+
+      - name: Build di EAS cloud
+        id: build
+        run: |
+          set -euo pipefail
+          echo "::warning::Build Android lokal gagal; memakai build EAS cloud sebagai cadangan."
+          npx --yes "eas-cli@$EAS_CLI_VERSION" build --platform android --profile production --non-interactive --wait --json > "$RUNNER_TEMP/build.json"
+          jq -e '.[0].status == "FINISHED"' "$RUNNER_TEMP/build.json" > /dev/null || { echo "::error::Build EAS cloud tidak selesai dengan sukses."; cat "$RUNNER_TEMP/build.json"; exit 1; }
+          id=$(jq -r '.[0].id' "$RUNNER_TEMP/build.json")
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+          echo "### Build Android cadangan (EAS cloud)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- build lokal gagal; build id \`$id\` dibuat di EAS cloud" >> "$GITHUB_STEP_SUMMARY"
+
+      # Kredensial service account Google Play diambil dari EAS. Track/status ada di eas.json (submit.production.android).
+      - name: Submit ke Play (internal)
+        if: github.event_name != 'workflow_dispatch' || inputs.submit
+        env:
+          BUILD_ID: ${{ steps.build.outputs.id }}
+        run: |
+          set -euo pipefail
+          npx --yes "eas-cli@$EAS_CLI_VERSION" submit --platform android --profile production --id "$BUILD_ID" --non-interactive
+          echo "- build id \`$BUILD_ID\` dikirim ke Play (internal)" >> "$GITHUB_STEP_SUMMARY"
+
   build-ios:
     name: Build iOS (eas build --local)
     needs: [bump-version]
@@ -1063,6 +1125,68 @@ jobs:
           path: ${{ runner.temp }}/app.ipa
           if-no-files-found: error
           retention-days: 7
+
+  # Cadangan: hanya jalan bila build iOS lokal di macOS GAGAL (bukan dibatalkan/dilewati). Build dibuat di server EAS
+  # (akun Expo pemilik EXPO_TOKEN, kredensial iOS dari EAS), lalu langsung di-submit ke TestFlight dengan build id yang sama.
+  # Memakai kuota build cloud EAS dan bisa mengantre. Submit mengikuti aturan yang sama dengan submit-ios
+  # (dilewati bila run manual dengan submit=false).
+  build-ios-cloud:
+    name: Build iOS cadangan (EAS cloud) + submit
+    needs: [bump-version, build-ios]
+    if: ${{ always() && needs.bump-version.result == 'success' && needs.build-ios.result == 'failure' }}
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 150
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: loginrek-mobile
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      ASC_APP_ID: ${{ vars.ASC_APP_ID }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.bump-version.outputs.sha }}
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: loginrek-mobile/package-lock.json
+
+      - name: Cek EXPO_TOKEN
+        run: '[ -n "$EXPO_TOKEN" ] || { echo "::error::Secret EXPO_TOKEN belum diisi (Environment production)."; exit 1; }'
+
+      - run: npm ci --no-audit --no-fund
+
+      # Working tree harus bersih saat build (eas build memeriksanya), jadi eas.json baru diubah setelah build, di langkah submit.
+      - name: Build di EAS cloud
+        id: build
+        run: |
+          set -euo pipefail
+          echo "::warning::Build iOS lokal (macOS) gagal; memakai build EAS cloud sebagai cadangan."
+          npx --yes "eas-cli@$EAS_CLI_VERSION" build --platform ios --profile production --non-interactive --wait --json > "$RUNNER_TEMP/build.json"
+          jq -e '.[0].status == "FINISHED"' "$RUNNER_TEMP/build.json" > /dev/null || { echo "::error::Build EAS cloud tidak selesai dengan sukses."; cat "$RUNNER_TEMP/build.json"; exit 1; }
+          id=$(jq -r '.[0].id' "$RUNNER_TEMP/build.json")
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+          echo "### Build iOS cadangan (EAS cloud)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- build lokal macOS gagal; build id \`$id\` dibuat di EAS cloud" >> "$GITHUB_STEP_SUMMARY"
+
+      # ascAppId tidak ditulis di repo: diisi dari variabel repo ASC_APP_ID bila ada (sama seperti submit-ios).
+      - name: Submit ke TestFlight
+        if: github.event_name != 'workflow_dispatch' || inputs.submit
+        env:
+          BUILD_ID: ${{ steps.build.outputs.id }}
+        run: |
+          set -euo pipefail
+          if [ -n "${ASC_APP_ID:-}" ]; then
+            jq --arg id "$ASC_APP_ID" '.submit.production.ios.ascAppId = $id' eas.json > "$RUNNER_TEMP/eas.json"
+            cp "$RUNNER_TEMP/eas.json" eas.json
+          fi
+          npx --yes "eas-cli@$EAS_CLI_VERSION" submit --platform ios --profile production --id "$BUILD_ID" --non-interactive
+          echo "- build id \`$BUILD_ID\` dikirim ke TestFlight" >> "$GITHUB_STEP_SUMMARY"
 
   submit-android:
     name: Submit ke Play (internal)
@@ -1144,7 +1268,12 @@ jobs:
 
   rebase-native:
     name: Simpan acuan native versi baru
-    needs: [bump-version, build-android, build-ios]
+    needs: [bump-version, build-android, build-android-cloud, build-ios, build-ios-cloud]
+    # Tiap platform dianggap sukses bila build lokalnya sukses ATAU (lokal gagal dan) build cadangan cloud-nya sukses.
+    if: >-
+      ${{ always() && needs.bump-version.result == 'success' &&
+      (needs.build-android.result == 'success' || needs.build-android-cloud.result == 'success') &&
+      (needs.build-ios.result == 'success' || needs.build-ios-cloud.result == 'success') }}
     runs-on: ubuntu-latest
     environment: production
     # Bergantian dengan publish-ota: keduanya menulis ke ota-state di VPS.

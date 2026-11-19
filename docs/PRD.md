@@ -44,7 +44,12 @@ Aturan:
 - **OTA dilewati otomatis** bila terdeteksi perubahan native; CI lalu membangun versi baru (versi patch naik otomatis) dan mengirimnya ke TestFlight + Play internal.
 - Update hanya diterima oleh build yang `runtimeVersion`-nya sama (kebijakan `appVersion`) dan channel `production`.
 - Rilis otomatis saat ada commit di `loginrek-mobile/` (selain `.md`); rollback = rilis update baru dari commit yang sehat.
-- Update terpasang setelah aplikasi dibuka-tutup dua kali (unduh di buka pertama, aktif di buka kedua).
+- **Pembukaan pertama di sebuah build** (install baru, install ulang, atau update dari store): aplikasi mengecek OTA terbaru; bila ada, tampil
+  layar "Menyiapkan pembaruan…", update diunduh, lalu aplikasi restart otomatis. Tanpa sinyal atau bila terlalu lama (6 dtk cek, 15 dtk unduh),
+  aplikasi tetap terbuka dengan versi yang ada.
+- **Pembukaan berikutnya**: aplikasi langsung terbuka tanpa menunggu; update diunduh di latar belakang dan aktif di pembukaan berikutnya.
+- Pengguna baru dari store merasakan layar pembaruan di buka pertama hanya bila build store yang mereka pasang sudah memuat fitur ini.
+  Detail teknis: ARCHITECTURE.md ("Update OTA").
 
 ### Rencana
 - Absen pulang.

@@ -265,6 +265,11 @@ const id = {
     channelInfo: 'Info',
   },
 
+  startupUpdate: {
+    title: 'Menyiapkan pembaruan…',
+    hint: 'Mohon tunggu sebentar, aplikasi akan restart otomatis.',
+  },
+
   appInfo: {
     label: 'Informasi versi aplikasi',
     embedded: 'Bawaan build',

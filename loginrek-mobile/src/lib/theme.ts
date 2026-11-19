@@ -18,6 +18,8 @@ export const colors = {
   primaryDark: '#0A5E66',
   primaryLight: '#E6F4F5',
   accent: '#14B8A6',
+  /** Latar splash native (app.json -> expo-splash-screen); dipakai agar peralihan splash ke layar app mulus. */
+  splash: '#0B7F78',
 
   background: '#F7FAFA',
   surface: '#FFFFFF',
