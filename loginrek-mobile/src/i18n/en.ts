@@ -62,7 +62,7 @@ const en: Translation = {
   },
 
   login: {
-    tagline: 'Access your account with ease',
+    tagline: 'Arrive On Time, Keep the Office Organized',
     logoLabel: 'SapaKerja logo',
     title: 'Sign In',
     subtitle: 'Please sign in with your employee account',
@@ -115,7 +115,8 @@ const en: Translation = {
       'The location signal is too weak (accuracy about {{accuracy}} m, maximum {{max}} m). Move to an open area or near a window, make sure GPS is in high-accuracy mode, then check again.',
     enablePrecise: 'Turn On Precise Location',
     mockedTitle: 'Fake Location Detected',
-    mockedBody: 'This device is using a mock location. Turn off the fake-location app and try again.',
+    mockedBody:
+      'This device is using a mock location. Turn off the fake-location app and try again.',
     unavailableTitle: 'Location Not Available',
     unavailableBody:
       'The device location could not be read. Make sure GPS is on and location permission is allowed, then try again.',

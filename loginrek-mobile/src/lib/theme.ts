@@ -1,4 +1,4 @@
-import { createElement, type ComponentProps } from 'react';
+import { createElement, forwardRef, type ComponentProps, type ComponentRef } from 'react';
 import {
   StyleSheet,
   Text as RNText,
@@ -76,6 +76,10 @@ export function Text({ style, ...props }: ComponentProps<typeof RNText>) {
 }
 
 /** Pengganti `TextInput` dari react-native yang otomatis memakai font aplikasi. */
-export function TextInput({ style, ...props }: ComponentProps<typeof RNTextInput>) {
-  return createElement(RNTextInput, { ...props, style: withAppFont(style) });
-}
+export const TextInput = forwardRef<
+  ComponentRef<typeof RNTextInput>,
+  ComponentProps<typeof RNTextInput>
+>(function TextInput({ style, ...props }, ref) {
+  return createElement(RNTextInput, { ...props, ref, style: withAppFont(style) });
+});
+TextInput.displayName = 'TextInput';
