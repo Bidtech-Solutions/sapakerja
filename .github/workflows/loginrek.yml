@@ -29,6 +29,8 @@
 #   target = deploy (default) : jalur server (check -> build -> package -> deploy)
 #   target = ota              : hanya jalur OTA (native-check + publish-ota)
 #   target = native           : build native + submit (bump-version ... rebase-native); submit=false untuk build saja
+#                               platform   = all (default) | android | ios   (satu platform saja: acuan native TIDAK ditulis)
+#                               build_mode = auto (default: lokal, cloud bila lokal gagal/dibatalkan) | local (tanpa cadangan) | cloud (langsung EAS cloud)
 #   rebase_native             : centang SETELAH build eas baru terpasang, untuk menjadikan kondisi
 #                               native saat ini sebagai acuan OTA (lihat job publish-ota)
 #
@@ -80,6 +82,16 @@ on:
         description: "Khusus target=native: kirim hasil build ke TestFlight + Play internal (matikan untuk build saja)"
         type: boolean
         default: true
+      platform:
+        description: "Khusus target=native: platform yang dibuild"
+        type: choice
+        options: [all, android, ios]
+        default: all
+      build_mode:
+        description: "Khusus target=native: auto = lokal (cloud sebagai cadangan), local = lokal saja, cloud = langsung EAS cloud"
+        type: choice
+        options: [auto, local, cloud]
+        default: auto
 
 # Tidak ada concurrency tingkat workflow: antrean diatur per job (deploy dan publish-ota),
 # supaya run yang hanya mengubah mobile tidak mengantre/membatalkan deploy server, dan sebaliknya.
@@ -909,7 +921,7 @@ jobs:
   #   bump-version  : changed -> naikkan patch (app.json + package.json), commit balik ke main; missing -> versi apa adanya
   #   build-android : eas build --local (ubuntu)  -> artefak .aab
   #   build-ios     : eas build --local (macOS)   -> artefak .ipa
-  #   build-android-cloud / build-ios-cloud : CADANGAN, hanya bila build lokal platform itu gagal: eas build di EAS cloud
+  #   build-android-cloud / build-ios-cloud : CADANGAN, hanya bila build lokal platform itu gagal/dibatalkan GitHub (runner tidak didapat): eas build di EAS cloud
   #                   (akun Expo EXPO_TOKEN) lalu langsung eas submit ke Play internal / TestFlight (memakai kuota build cloud EAS)
   #   submit-*      : eas submit -> TestFlight / Play track internal (draft). Rilis ke pengguna tetap manual.
   #   rebase-native : setelah build Android DAN build iOS (masing-masing lokal atau cadangan cloud) sukses, simpan acuan native versi ini
@@ -981,6 +993,9 @@ jobs:
   build-android:
     name: Build Android (eas build --local)
     needs: [bump-version]
+    # Run manual: dilewati bila platform=ios atau build_mode=cloud. Push: selalu jalan (input kosong = all/auto).
+    if: >-
+      (inputs.platform || 'all') != 'ios' && (inputs.build_mode || 'auto') != 'cloud'
     runs-on: ubuntu-latest
     environment: production
     timeout-minutes: 90
@@ -1022,14 +1037,22 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  # Cadangan: hanya jalan bila build Android lokal (runner Linux) GAGAL (bukan dibatalkan/dilewati). Build dibuat di server EAS
+  # Cadangan: hanya jalan bila build Android lokal (runner Linux) GAGAL, atau job-nya dibatalkan GitHub (runner tidak didapat,
+  # timeout) selama RUN-nya sendiri tidak dibatalkan manual (!cancelled()); run yang dibatalkan manual atau build yang
+  # dilewati tidak memicu cloud. Build dibuat di server EAS
   # (akun Expo pemilik EXPO_TOKEN, keystore dari EAS), lalu langsung di-submit ke Play (internal) dengan build id yang sama.
   # Memakai kuota build cloud EAS dan bisa mengantre. Submit mengikuti aturan yang sama dengan submit-android
   # (dilewati bila run manual dengan submit=false).
   build-android-cloud:
     name: Build Android cadangan (EAS cloud) + submit
     needs: [bump-version, build-android]
-    if: ${{ always() && needs.bump-version.result == 'success' && needs.build-android.result == 'failure' }}
+    # build_mode=cloud (manual): langsung ke sini tanpa build lokal. build_mode=local: tidak pernah. auto/push: hanya sebagai cadangan.
+    if: >-
+      ${{ always() && needs.bump-version.result == 'success' &&
+      (inputs.platform || 'all') != 'ios' && (inputs.build_mode || 'auto') != 'local' &&
+      ((inputs.build_mode == 'cloud' && !cancelled()) ||
+      needs.build-android.result == 'failure' ||
+      (needs.build-android.result == 'cancelled' && !cancelled())) }}
     runs-on: ubuntu-latest
     environment: production
     timeout-minutes: 150
@@ -1081,6 +1104,9 @@ jobs:
   build-ios:
     name: Build iOS (eas build --local)
     needs: [bump-version]
+    # Run manual: dilewati bila platform=android atau build_mode=cloud. Push: selalu jalan (input kosong = all/auto).
+    if: >-
+      (inputs.platform || 'all') != 'android' && (inputs.build_mode || 'auto') != 'cloud'
     runs-on: macos-15
     environment: production
     timeout-minutes: 120
@@ -1126,14 +1152,22 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  # Cadangan: hanya jalan bila build iOS lokal di macOS GAGAL (bukan dibatalkan/dilewati). Build dibuat di server EAS
+  # Cadangan: hanya jalan bila build iOS lokal di macOS GAGAL, atau job-nya dibatalkan GitHub (mis. runner macOS tidak
+  # didapat: "job was not acquired by Runner of type hosted", timeout) selama RUN-nya sendiri tidak dibatalkan manual
+  # (!cancelled()); run yang dibatalkan manual atau build yang dilewati tidak memicu cloud. Build dibuat di server EAS
   # (akun Expo pemilik EXPO_TOKEN, kredensial iOS dari EAS), lalu langsung di-submit ke TestFlight dengan build id yang sama.
   # Memakai kuota build cloud EAS dan bisa mengantre. Submit mengikuti aturan yang sama dengan submit-ios
   # (dilewati bila run manual dengan submit=false).
   build-ios-cloud:
     name: Build iOS cadangan (EAS cloud) + submit
     needs: [bump-version, build-ios]
-    if: ${{ always() && needs.bump-version.result == 'success' && needs.build-ios.result == 'failure' }}
+    # build_mode=cloud (manual): langsung ke sini tanpa build lokal. build_mode=local: tidak pernah. auto/push: hanya sebagai cadangan.
+    if: >-
+      ${{ always() && needs.bump-version.result == 'success' &&
+      (inputs.platform || 'all') != 'android' && (inputs.build_mode || 'auto') != 'local' &&
+      ((inputs.build_mode == 'cloud' && !cancelled()) ||
+      needs.build-ios.result == 'failure' ||
+      (needs.build-ios.result == 'cancelled' && !cancelled())) }}
     runs-on: ubuntu-latest
     environment: production
     timeout-minutes: 150
@@ -1270,8 +1304,9 @@ jobs:
     name: Simpan acuan native versi baru
     needs: [bump-version, build-android, build-android-cloud, build-ios, build-ios-cloud]
     # Tiap platform dianggap sukses bila build lokalnya sukses ATAU (lokal gagal dan) build cadangan cloud-nya sukses.
+    # Run manual dengan platform=android/ios (satu platform saja) TIDAK menulis acuan: pakai target=ota + rebase_native setelah keduanya terpasang.
     if: >-
-      ${{ always() && needs.bump-version.result == 'success' &&
+      ${{ always() && needs.bump-version.result == 'success' && (inputs.platform || 'all') == 'all' &&
       (needs.build-android.result == 'success' || needs.build-android-cloud.result == 'success') &&
       (needs.build-ios.result == 'success' || needs.build-ios-cloud.result == 'success') }}
     runs-on: ubuntu-latest

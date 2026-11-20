@@ -219,7 +219,8 @@ HP ──GET /updates/files/…──► bundle & aset (immutable)
    tetapi memakan menit Actions (macOS lebih mahal pada repo privat).
    **Cadangan per platform**: bila `build-android` (runner Linux) atau `build-ios` (macOS) **gagal**, job `build-android-cloud` / `build-ios-cloud`
    membangun platform itu di EAS cloud (akun Expo pemilik `EXPO_TOKEN`, kredensial dari EAS) dan langsung men-submit build itu dengan `eas submit --id`.
-   Hanya berjalan saat build lokal platform tersebut gagal (bukan dibatalkan/dilewati); memakai kuota build cloud EAS dan bisa mengantre.
+   Berjalan saat build lokal platform tersebut gagal, atau job-nya dibatalkan GitHub (mis. runner macOS tidak didapat: "job was not acquired by Runner of
+   type hosted"; timeout) selama run-nya sendiri tidak dibatalkan manual; build yang dilewati tidak memicunya. Memakai kuota build cloud EAS dan bisa mengantre.
    Run tetap berstatus gagal (merah) karena build lokalnya gagal, tetapi ringkasannya mencatat bahwa cadangan dipakai.
 3. `submit-android` / `submit-ios`: `eas submit` ke Play track `internal` (draft) dan TestFlight. Keduanya otomatis berjalan bila build lokal platformnya sukses;
    bila yang dipakai build cadangan, submit sudah dilakukan di dalam job `*-cloud`. Release notes, memilih build, dan kirim ke review
@@ -231,7 +232,9 @@ HP ──GET /updates/files/…──► bundle & aset (immutable)
 Tambahkan `[skip build]` di pesan commit (commit terakhir pada push) untuk melewati build native. Jangan push commit native bertubi-tubi saat build berjalan.
 Prasyarat: secret `EXPO_TOKEN` (Environment `production`); kredensial store tersimpan di EAS (kunci App Store Connect API, service account Google Play);
 variabel repo `ASC_APP_ID` (ID numerik app di App Store Connect). Artefak `.aab`/`.ipa` disimpan 7 hari di run Actions untuk submit manual bila perlu.
-Build tanpa submit: `target=native` dan matikan `submit`. Run manual `target=ota` + `rebase_native` tetap ada untuk memasang acuan secara manual
+Build tanpa submit: `target=native` dan matikan `submit`. Pilihan run manual `target=native`: `platform` = `all` (default) / `android` / `ios`, dan
+`build_mode` = `auto` (default: lokal, cloud sebagai cadangan) / `local` (lokal saja, tanpa cadangan) / `cloud` (langsung EAS cloud, tanpa build lokal). Run satu
+platform saja (`platform` ≠ `all`) tidak menulis acuan native (`rebase-native`): setelah kedua platform terpasang, jalankan `target=ota` + `rebase_native`. Run manual `target=ota` + `rebase_native` tetap ada untuk memasang acuan secara manual
 (mis. setelah build dari luar CI).
 
 **Rollback** — rilis update **baru** dari commit yang sehat (revert commit lalu push, atau Run workflow dari commit itu). Jangan hanya
