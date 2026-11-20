@@ -63,7 +63,7 @@ const id = {
   },
 
   login: {
-    tagline: 'Simpan akunmu dengan mudah',
+    tagline: 'Datang Tepat Waktu, Kantor Lebih Teratur',
     logoLabel: 'Logo SapaKerja',
     title: 'Masuk',
     subtitle: 'Silakan masuk dengan akun karyawan kamu',
@@ -117,7 +117,8 @@ const id = {
       'Sinyal lokasi terlalu lemah (akurasi sekitar {{accuracy}} m, maksimal {{max}} m). Pindah ke area terbuka atau dekat jendela, pastikan GPS dalam mode akurasi tinggi, lalu cek lagi.',
     enablePrecise: 'Aktifkan Lokasi Presisi',
     mockedTitle: 'Lokasi Palsu Terdeteksi',
-    mockedBody: 'Perangkat ini memakai lokasi tiruan (mock location). Matikan aplikasi lokasi palsu lalu coba lagi.',
+    mockedBody:
+      'Perangkat ini memakai lokasi tiruan (mock location). Matikan aplikasi lokasi palsu lalu coba lagi.',
     unavailableTitle: 'Lokasi Belum Terbaca',
     unavailableBody:
       'Lokasi perangkat belum bisa dibaca. Pastikan GPS menyala dan izin lokasi aktif, lalu coba lagi.',
