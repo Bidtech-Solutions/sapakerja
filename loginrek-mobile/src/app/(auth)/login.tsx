@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ComponentRef } from 'react';
+import { useCallback, useRef, useState, type ComponentRef } from 'react';
 import {
   ActivityIndicator,
   BackHandler,
@@ -35,22 +35,6 @@ export default function LoginScreen() {
 
   const scrollViewRef = useRef<ComponentRef<typeof ScrollView>>(null);
   const passwordInputRef = useRef<ComponentRef<typeof RNTextInput>>(null);
-
-  // Gulir halus ke posisi y saat input aktif agar tidak tertutup keyboard
-  const scrollToOffset = useCallback((y: number) => {
-    setTimeout(() => {
-      scrollViewRef.current?.scrollTo({ y, animated: true });
-    }, 100);
-  }, []);
-
-  // Kembalikan scroll ke paling atas saat keyboard ditutup
-  useEffect(() => {
-    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-    const hideSub = Keyboard.addListener(hideEvent, () => {
-      scrollViewRef.current?.scrollTo({ y: 0, animated: true });
-    });
-    return () => hideSub.remove();
-  }, []);
 
   // Cegah tombol back Android kembali ke halaman Home atau sesi sebelumnya
   useFocusEffect(
@@ -132,118 +116,125 @@ export default function LoginScreen() {
           keyboardDismissMode="on-drag"
           bounces={false}
         >
-          {/* Header Gradien Hijau/Teal */}
-          <LinearGradient
-            colors={['#033F39', '#06574F', '#0B7369']}
-            start={{ x: 0.1, y: 0 }}
-            end={{ x: 0.9, y: 1 }}
-            style={[styles.headerGradient, { paddingTop: insets.top + 28 }]}
-          >
-            {/* Logo SapaKerja */}
-            <View style={styles.logoContainer}>
-              <View style={styles.logoBadge}>
-                <Image
-                  source={require('@/assets/logo-symbol.png')}
-                  style={styles.logoImage}
-                  accessibilityLabel={t('login.logoLabel')}
-                />
-              </View>
-              <Text style={styles.brandTitle}>SapaKerja</Text>
-              <Text style={styles.brandSubtitle}>{t('login.tagline')}</Text>
-            </View>
-          </LinearGradient>
-
-          {/* Card Form Putih di Bawah */}
-          <View style={[styles.cardContainer, { paddingBottom: Math.max(insets.bottom, 24) + 60 }]}>
-            {/* Judul Form */}
-            <Text style={styles.formTitle}>{t('login.title')}</Text>
-            <Text style={styles.formSubtitle}>{t('login.subtitle')}</Text>
-
-            {/* Banner Error jika ada */}
-            {errorMessage ? (
-              <View style={styles.errorBanner}>
-                <Feather name="alert-circle" size={16} color={colors.danger} />
-                <Text style={styles.errorText}>{errorMessage}</Text>
-              </View>
-            ) : null}
-
-            {/* Input Email / No. HP */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>{t('login.identifierLabel')}</Text>
-              <View style={styles.inputWrapper}>
-                <Feather name="mail" size={20} color="#94A3B8" style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  placeholder={t('login.identifierPlaceholder')}
-                  placeholderTextColor="#94A3B8"
-                  value={identifier}
-                  onChangeText={(text) => {
-                    setIdentifier(text);
-                    if (errorMessage) setErrorMessage(null);
-                  }}
-                  autoCapitalize="none"
-                  keyboardType="email-address"
-                  autoCorrect={false}
-                  returnKeyType="next"
-                  onFocus={() => scrollToOffset(120)}
-                  onSubmitEditing={() => passwordInputRef.current?.focus()}
-                />
-              </View>
-            </View>
-
-            {/* Input Password */}
-            <View style={[styles.inputGroup, { marginTop: 18 }]}>
-              <Text style={styles.label}>{t('login.passwordLabel')}</Text>
-              <View style={styles.inputWrapper}>
-                <Feather name="lock" size={20} color="#94A3B8" style={styles.inputIcon} />
-                <TextInput
-                  ref={passwordInputRef}
-                  style={styles.input}
-                  placeholder={t('login.passwordPlaceholder')}
-                  placeholderTextColor="#94A3B8"
-                  value={password}
-                  onChangeText={(text) => {
-                    setPassword(text);
-                    if (errorMessage) setErrorMessage(null);
-                  }}
-                  secureTextEntry={!showPassword}
-                  autoCapitalize="none"
-                  returnKeyType="done"
-                  onFocus={() => scrollToOffset(180)}
-                  onSubmitEditing={handleLogin}
-                />
-                <Pressable
-                  onPress={() => setShowPassword(!showPassword)}
-                  hitSlop={12}
-                  style={styles.eyeButton}
-                >
-                  <Feather name={showPassword ? 'eye' : 'eye-off'} size={20} color="#94A3B8" />
-                </Pressable>
-              </View>
-            </View>
-
-            {/* Tombol Masuk */}
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t('login.submit')}
-              onPress={handleLogin}
-              disabled={isLoading}
-              style={({ pressed }) => [
-                styles.submitButton,
-                pressed && styles.submitButtonPressed,
-                isLoading && styles.submitButtonDisabled,
-              ]}
+          <Pressable onPress={Keyboard.dismiss} accessible={false} style={styles.scrollInner}>
+            {/* Header Gradien Hijau/Teal */}
+            <LinearGradient
+              colors={['#033F39', '#06574F', '#0B7369']}
+              start={{ x: 0.1, y: 0 }}
+              end={{ x: 0.9, y: 1 }}
+              style={[styles.headerGradient, { paddingTop: insets.top + 28 }]}
             >
-              {isLoading ? (
-                <ActivityIndicator color="#FFFFFF" size="small" />
-              ) : (
-                <>
-                  <Text style={styles.submitButtonText}>{t('login.submit')}</Text>
-                  <Feather name="arrow-right" size={20} color="#FFFFFF" style={styles.arrowIcon} />
-                </>
-              )}
-            </Pressable>
-          </View>
+              {/* Logo SapaKerja */}
+              <View style={styles.logoContainer}>
+                <View style={styles.logoBadge}>
+                  <Image
+                    source={require('@/assets/logo-symbol.png')}
+                    style={styles.logoImage}
+                    accessibilityLabel={t('login.logoLabel')}
+                  />
+                </View>
+                <Text style={styles.brandTitle}>SapaKerja</Text>
+                <Text style={styles.brandSubtitle}>{t('login.tagline')}</Text>
+              </View>
+            </LinearGradient>
+
+            {/* Card Form Putih di Bawah */}
+            <View
+              style={[styles.cardContainer, { paddingBottom: Math.max(insets.bottom, 24) + 28 }]}
+            >
+              {/* Judul Form */}
+              <Text style={styles.formTitle}>{t('login.title')}</Text>
+              <Text style={styles.formSubtitle}>{t('login.subtitle')}</Text>
+
+              {/* Banner Error jika ada */}
+              {errorMessage ? (
+                <View style={styles.errorBanner}>
+                  <Feather name="alert-circle" size={16} color={colors.danger} />
+                  <Text style={styles.errorText}>{errorMessage}</Text>
+                </View>
+              ) : null}
+
+              {/* Input Email / No. HP */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>{t('login.identifierLabel')}</Text>
+                <View style={styles.inputWrapper}>
+                  <Feather name="mail" size={20} color="#94A3B8" style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder={t('login.identifierPlaceholder')}
+                    placeholderTextColor="#94A3B8"
+                    value={identifier}
+                    onChangeText={(text) => {
+                      setIdentifier(text);
+                      if (errorMessage) setErrorMessage(null);
+                    }}
+                    autoCapitalize="none"
+                    keyboardType="email-address"
+                    autoCorrect={false}
+                    returnKeyType="next"
+                    onSubmitEditing={() => passwordInputRef.current?.focus()}
+                  />
+                </View>
+              </View>
+
+              {/* Input Password */}
+              <View style={[styles.inputGroup, { marginTop: 18 }]}>
+                <Text style={styles.label}>{t('login.passwordLabel')}</Text>
+                <View style={styles.inputWrapper}>
+                  <Feather name="lock" size={20} color="#94A3B8" style={styles.inputIcon} />
+                  <TextInput
+                    ref={passwordInputRef}
+                    style={styles.input}
+                    placeholder={t('login.passwordPlaceholder')}
+                    placeholderTextColor="#94A3B8"
+                    value={password}
+                    onChangeText={(text) => {
+                      setPassword(text);
+                      if (errorMessage) setErrorMessage(null);
+                    }}
+                    secureTextEntry={!showPassword}
+                    autoCapitalize="none"
+                    returnKeyType="done"
+                    onSubmitEditing={handleLogin}
+                  />
+                  <Pressable
+                    onPress={() => setShowPassword(!showPassword)}
+                    hitSlop={12}
+                    style={styles.eyeButton}
+                  >
+                    <Feather name={showPassword ? 'eye' : 'eye-off'} size={20} color="#94A3B8" />
+                  </Pressable>
+                </View>
+              </View>
+
+              {/* Tombol Masuk */}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('login.submit')}
+                onPress={handleLogin}
+                disabled={isLoading}
+                style={({ pressed }) => [
+                  styles.submitButton,
+                  pressed && styles.submitButtonPressed,
+                  isLoading && styles.submitButtonDisabled,
+                ]}
+              >
+                {isLoading ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <>
+                    <Text style={styles.submitButtonText}>{t('login.submit')}</Text>
+                    <Feather
+                      name="arrow-right"
+                      size={20}
+                      color="#FFFFFF"
+                      style={styles.arrowIcon}
+                    />
+                  </>
+                )}
+              </Pressable>
+            </View>
+          </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
@@ -259,6 +250,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
+    flexGrow: 1,
+  },
+  scrollInner: {
     flexGrow: 1,
   },
   headerGradient: {
