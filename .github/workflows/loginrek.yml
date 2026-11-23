@@ -756,6 +756,10 @@ jobs:
           const runtimeVersion = resolveRuntime(expoConfig);
           if (!SAFE.test(runtimeVersion)) fail(`runtimeVersion tidak valid: ${runtimeVersion}`);
 
+          // Dukung runtime lama yang masih aktif di Google Play Store (1.0.3) selain runtime saat ini (1.0.4)
+          const allRuntimes = [runtimeVersion];
+          if (!allRuntimes.includes('1.0.3')) allRuntimes.push('1.0.3');
+
           // Waktu WIB (UTC+7). Hanya dipakai untuk label publishId; runner GitHub berjalan di UTC.
           const wib = new Date(Date.now() + 7 * 60 * 60 * 1000);
           const stamp = wib.toISOString().replace(/[-:]/g, '').replace(/\.\d+Z$/, 'WIB');
@@ -770,59 +774,62 @@ jobs:
           };
           const b64url = (buf) => createHash('sha256').update(buf).digest('base64url');
           const md5 = (buf) => createHash('md5').update(buf).digest('hex');
-          const urlFor = (rel) =>
-            `${BASE_URL}/${CHANNEL}/${runtimeVersion}/${publishId}/${rel.split('/').map(encodeURIComponent).join('/')}`;
 
-          const outDir = path.join(OUT, CHANNEL, runtimeVersion, publishId);
-          mkdirSync(outDir, { recursive: true });
-          cpSync(DIST, outDir, { recursive: true });
+          for (const rt of allRuntimes) {
+            const urlFor = (rel) =>
+              `${BASE_URL}/${CHANNEL}/${rt}/${publishId}/${rel.split('/').map(encodeURIComponent).join('/')}`;
 
-          for (const platform of ['ios', 'android']) {
-            const fm = metadata.fileMetadata?.[platform];
-            if (!fm?.bundle) fail(`metadata.json tidak memuat bundle untuk ${platform}`);
+            const outDir = path.join(OUT, CHANNEL, rt, publishId);
+            mkdirSync(outDir, { recursive: true });
+            cpSync(DIST, outDir, { recursive: true });
 
-            const bundleBuf = readFileSync(path.join(DIST, fm.bundle));
-            const launchAsset = {
-              hash: b64url(bundleBuf),
-              key: md5(bundleBuf),
-              contentType: 'application/javascript',
-              url: urlFor(fm.bundle),
-            };
-            const assets = (fm.assets ?? []).map((a) => {
-              const buf = readFileSync(path.join(DIST, a.path));
-              return {
-                hash: b64url(buf),
-                key: md5(buf),
-                fileExtension: a.ext ? `.${a.ext}` : '',
-                contentType: MIME[(a.ext ?? '').toLowerCase()] ?? 'application/octet-stream',
-                url: urlFor(a.path),
+            for (const platform of ['ios', 'android']) {
+              const fm = metadata.fileMetadata?.[platform];
+              if (!fm?.bundle) fail(`metadata.json tidak memuat bundle untuk ${platform}`);
+
+              const bundleBuf = readFileSync(path.join(DIST, fm.bundle));
+              const launchAsset = {
+                hash: b64url(bundleBuf),
+                key: md5(bundleBuf),
+                contentType: 'application/javascript',
+                url: urlFor(fm.bundle),
               };
-            });
+              const assets = (fm.assets ?? []).map((a) => {
+                const buf = readFileSync(path.join(DIST, a.path));
+                return {
+                  hash: b64url(buf),
+                  key: md5(buf),
+                  fileExtension: a.ext ? `.${a.ext}` : '',
+                  contentType: MIME[(a.ext ?? '').toLowerCase()] ?? 'application/octet-stream',
+                  url: urlFor(a.path),
+                };
+              });
 
-            const manifest = {
-              id: randomUUID(),
-              createdAt: new Date().toISOString(),
-              runtimeVersion,
-              launchAsset,
-              assets,
-              metadata: { publishId }, // dibaca layar Profil mobile (src/app/(app)/profile.tsx)
-              extra: { expoClient: expoConfig },
-            };
+              const manifest = {
+                id: randomUUID(),
+                createdAt: new Date().toISOString(),
+                runtimeVersion: rt,
+                launchAsset,
+                assets,
+                metadata: { publishId }, // dibaca layar Profil mobile (src/app/(app)/profile.tsx)
+                extra: { expoClient: expoConfig },
+              };
 
-            // String ini dikirim apa adanya oleh server dan menjadi bahan tanda tangan: jangan diformat ulang.
-            const manifestString = JSON.stringify(manifest);
-            writeFileSync(path.join(outDir, `manifest.${platform}.json`), manifestString, 'utf8');
+              // String ini dikirim apa adanya oleh server dan menjadi bahan tanda tangan: jangan diformat ulang.
+              const manifestString = JSON.stringify(manifest);
+              writeFileSync(path.join(outDir, `manifest.${platform}.json`), manifestString, 'utf8');
 
-            const signature = createSign('RSA-SHA256').update(manifestString).sign(SIGNING_KEY, 'base64');
-            writeFileSync(path.join(outDir, `manifest.${platform}.sig`), `sig="${signature}", keyid="${KEY_ID}"\n`, 'utf8');
-            console.log(`${platform}: bundle ${fm.bundle}, ${assets.length} aset, id ${manifest.id}`);
+              const signature = createSign('RSA-SHA256').update(manifestString).sign(SIGNING_KEY, 'base64');
+              writeFileSync(path.join(outDir, `manifest.${platform}.sig`), `sig="${signature}", keyid="${KEY_ID}"\n`, 'utf8');
+              console.log(`${platform} (${rt}): bundle ${fm.bundle}, ${assets.length} aset, id ${manifest.id}`);
+            }
           }
 
-          console.log(`channel=${CHANNEL} runtime=${runtimeVersion} publishId=${publishId}`);
+          console.log(`channel=${CHANNEL} runtime=${runtimeVersion} runtimes=${allRuntimes.join(' ')} publishId=${publishId}`);
           if (process.env.GITHUB_OUTPUT) {
             appendFileSync(
               process.env.GITHUB_OUTPUT,
-              `channel=${CHANNEL}\nruntime=${runtimeVersion}\npublish_id=${publishId}\n`,
+              `channel=${CHANNEL}\nruntime=${runtimeVersion}\nruntimes=${allRuntimes.join(' ')}\npublish_id=${publishId}\n`,
             );
           }
           NODE
@@ -867,6 +874,7 @@ jobs:
         uses: appleboy/ssh-action@v1
         env:
           RUNTIME: ${{ steps.manifest.outputs.runtime }}
+          RUNTIMES: ${{ steps.manifest.outputs.runtimes }}
           PUBLISH_ID: ${{ steps.manifest.outputs.publish_id }}
           KEEP: "10"
         with:
@@ -874,7 +882,7 @@ jobs:
           port: ${{ secrets.VPS_PORT || '22' }}
           username: ${{ secrets.VPS_USER || 'root' }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          envs: DEPLOY_PATH,OTA_DIR,CHANNEL,RUNTIME,PUBLISH_ID,KEEP
+          envs: DEPLOY_PATH,OTA_DIR,CHANNEL,RUNTIME,RUNTIMES,PUBLISH_ID,KEEP
           script: |
             set -euo pipefail
             cd "$DEPLOY_PATH"
@@ -883,14 +891,16 @@ jobs:
             chmod -R a+rX "$OTA_DIR"
 
             # Pindahkan pointer TERAKHIR (atomik), setelah semua berkas ada.
-            cd "$OTA_DIR/$CHANNEL/$RUNTIME"
-            printf '{"publishId":"%s"}\n' "$PUBLISH_ID" > latest.json.tmp
-            chmod 644 latest.json.tmp
-            mv -f latest.json.tmp latest.json
-
-            # Simpan $KEEP rilis terakhir (nama folder = timestamp, jadi urut waktu).
-            ls -1d */ | sort -r | tail -n +$((KEEP + 1)) | xargs -r rm -rf --
-            echo "OTA aktif: $CHANNEL / $RUNTIME / $PUBLISH_ID"
+            target_runtimes="${RUNTIMES:-$RUNTIME}"
+            for rt in $target_runtimes; do
+              mkdir -p "$OTA_DIR/$CHANNEL/$rt"
+              cd "$OTA_DIR/$CHANNEL/$rt"
+              printf '{"publishId":"%s"}\n' "$PUBLISH_ID" > latest.json.tmp
+              chmod 644 latest.json.tmp
+              mv -f latest.json.tmp latest.json
+              ls -1d */ 2>/dev/null | sort -r | tail -n +$((KEEP + 1)) | xargs -r rm -rf -- || true
+              echo "OTA aktif: $CHANNEL / $rt / $PUBLISH_ID"
+            done
 
       # Hanya saat rebase_native: catat kondisi native ini sebagai acuan OTA berikutnya.
       - name: Simpan acuan native di VPS

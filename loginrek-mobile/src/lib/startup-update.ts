@@ -8,8 +8,8 @@ import * as Updates from 'expo-updates';
  * - Pembukaan PERTAMA di sebuah build native (install baru, install ulang setelah uninstall, atau
  *   update dari store): cek OTA terbaru dan, bila ada, unduh lalu restart. Pemanggil menampilkan
  *   layar "Menyiapkan pembaruan…" selama proses ini.
- * - Pembukaan berikutnya di build yang sama: tidak ada akses jaringan di sini. Unduhan di latar
- *   belakang tetap dikerjakan expo-updates sendiri dan dipakai pada pembukaan berikutnya.
+ * - Pembukaan berikutnya di build yang sama: unduhan di latar belakang tetap dikerjakan
+ *   oleh expo-updates dan diterapkan pada peluncuran berikutnya.
  *
  * Penanda "build ini sudah pernah dibuka" disimpan di expo-sqlite/kv-store (bukan SecureStore,
  * karena Keychain iOS bisa bertahan setelah uninstall sehingga install ulang tidak terdeteksi).
