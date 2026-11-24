@@ -1,9 +1,9 @@
-import { useCallback, useRef, useState, type ComponentRef } from 'react';
+import { useCallback, useEffect, useRef, useState, type ComponentRef } from 'react';
 import {
   ActivityIndicator,
   BackHandler,
   Image,
-  KeyboardAvoidingView,
+  Keyboard,
   Platform,
   Pressable,
   ScrollView,
@@ -11,6 +11,7 @@ import {
   TextInput as RNTextInput,
   View,
 } from 'react-native';
+
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -20,7 +21,6 @@ import { router, useFocusEffect } from 'expo-router';
 
 import { authApi, setAccessToken, ApiError } from '@/lib/api';
 import { tokenStorage, userStore, UserAccount } from '@/lib/session';
-// userStore imported above
 import { colors, Text, TextInput } from '@/lib/theme';
 
 export default function LoginScreen() {
@@ -34,6 +34,36 @@ export default function LoginScreen() {
 
   const scrollViewRef = useRef<ComponentRef<typeof ScrollView>>(null);
   const passwordInputRef = useRef<ComponentRef<typeof RNTextInput>>(null);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, (e) => {
+      setKeyboardHeight(e.endCoordinates.height);
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  function handleIdentifierFocus() {
+    setTimeout(() => {
+      scrollViewRef.current?.scrollTo({ y: 70, animated: true });
+    }, 150);
+  }
+
+  function handlePasswordFocus() {
+    setTimeout(() => {
+      scrollViewRef.current?.scrollToEnd({ animated: true });
+    }, 150);
+  }
 
   // Cegah tombol back Android kembali ke halaman Home atau sesi sebelumnya
   useFocusEffect(
@@ -103,18 +133,18 @@ export default function LoginScreen() {
     <View style={styles.screen}>
       <StatusBar style="light" />
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.keyboardAvoid}
+      <ScrollView
+        ref={scrollViewRef}
+        contentContainerStyle={[
+          styles.scrollContent,
+          keyboardHeight > 0 && { paddingBottom: keyboardHeight + 36 },
+        ]}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        bounces={false}
       >
-        <ScrollView
-          ref={scrollViewRef}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
-          bounces={false}
-        >
+        <Pressable onPress={Keyboard.dismiss} accessible={false} style={styles.scrollInner}>
           {/* Header Gradien Hijau/Teal */}
           <LinearGradient
             colors={['#033F39', '#06574F', '#0B7369']}
@@ -137,7 +167,9 @@ export default function LoginScreen() {
           </LinearGradient>
 
           {/* Card Form Putih di Bawah */}
-          <View style={[styles.cardContainer, { paddingBottom: Math.max(insets.bottom, 24) + 24 }]}>
+          <View
+            style={[styles.cardContainer, { paddingBottom: Math.max(insets.bottom, 24) + 28 }]}
+          >
             {/* Judul Form */}
             <Text style={styles.formTitle}>{t('login.title')}</Text>
             <Text style={styles.formSubtitle}>{t('login.subtitle')}</Text>
@@ -160,6 +192,7 @@ export default function LoginScreen() {
                   placeholder={t('login.identifierPlaceholder')}
                   placeholderTextColor="#94A3B8"
                   value={identifier}
+                  onFocus={handleIdentifierFocus}
                   onChangeText={(text) => {
                     setIdentifier(text);
                     if (errorMessage) setErrorMessage(null);
@@ -184,6 +217,7 @@ export default function LoginScreen() {
                   placeholder={t('login.passwordPlaceholder')}
                   placeholderTextColor="#94A3B8"
                   value={password}
+                  onFocus={handlePasswordFocus}
                   onChangeText={(text) => {
                     setPassword(text);
                     if (errorMessage) setErrorMessage(null);
@@ -192,11 +226,6 @@ export default function LoginScreen() {
                   autoCapitalize="none"
                   returnKeyType="done"
                   onSubmitEditing={handleLogin}
-                  onFocus={() => {
-                    setTimeout(() => {
-                      scrollViewRef.current?.scrollToEnd({ animated: true });
-                    }, 150);
-                  }}
                 />
                 <Pressable
                   onPress={() => setShowPassword(!showPassword)}
@@ -225,13 +254,18 @@ export default function LoginScreen() {
               ) : (
                 <>
                   <Text style={styles.submitButtonText}>{t('login.submit')}</Text>
-                  <Feather name="arrow-right" size={20} color="#FFFFFF" style={styles.arrowIcon} />
+                  <Feather
+                    name="arrow-right"
+                    size={20}
+                    color="#FFFFFF"
+                    style={styles.arrowIcon}
+                  />
                 </>
               )}
             </Pressable>
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+        </Pressable>
+      </ScrollView>
     </View>
   );
 }
@@ -245,6 +279,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
+    flexGrow: 1,
+  },
+  scrollInner: {
     flexGrow: 1,
   },
   headerGradient: {

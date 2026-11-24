@@ -334,7 +334,13 @@ export default function ProfileScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView
-          contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 16 }]}
+          contentContainerStyle={[
+            styles.scrollContent,
+            {
+              paddingTop: insets.top + 16,
+              paddingBottom: 80 + Math.max(insets.bottom, 12),
+            },
+          ]}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
@@ -507,7 +513,15 @@ export default function ProfileScreen() {
       </KeyboardAvoidingView>
 
       {/* Bottom Navigation Bar */}
-      <View style={[styles.bottomNav, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+      <View
+        style={[
+          styles.bottomNav,
+          {
+            height: 64 + Math.max(insets.bottom, 12),
+            paddingBottom: Math.max(insets.bottom, 12),
+          },
+        ]}
+      >
         {/* Tab Riwayat */}
         <Pressable
           style={styles.tabButton}
@@ -813,7 +827,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: 78,
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderTopColor: '#F1F5F9',

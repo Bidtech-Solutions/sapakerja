@@ -1195,7 +1195,15 @@ export default function AttendanceScreen() {
       {/* ============================================================== */}
       {/* BOTTOM NAVIGATION BAR (1:1 Sesuai Figma)                       */}
       {/* ============================================================== */}
-      <View style={[styles.bottomNav, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+      <View
+        style={[
+          styles.bottomNav,
+          {
+            height: 64 + Math.max(insets.bottom, 12),
+            paddingBottom: Math.max(insets.bottom, 12),
+          },
+        ]}
+      >
         {/* Tab Riwayat */}
         <Pressable
           accessibilityRole="button"
@@ -1388,7 +1396,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: 78,
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderTopColor: '#F1F5F9',
