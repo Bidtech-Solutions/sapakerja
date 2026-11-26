@@ -74,12 +74,7 @@ function AttendanceDetailPage({ record, onBack }: { record: AttendanceRecord; on
   // Hook selesai dipanggil, aman return null jika data record tidak ada
   if (!record) return null;
 
-  // Format department display
-  const displayDepartment = record.department
-    ? (record.department.toLowerCase().startsWith('divisi') ? record.department : `Divisi ${record.department}`)
-    : '—';
-
-  // Format Department & Role (NIK dihapus sesuai permintaan)
+  // Role / Jabatan dari tabel karyawan (Divisi tidak ditampilkan lagi: tidak bisa diisi HR)
   const displayRole = record.role || '—';
 
   // Avatar fallback: gunakan avatar asli user, atau default-avatar.webp jika belum upload
@@ -170,8 +165,6 @@ function AttendanceDetailPage({ record, onBack }: { record: AttendanceRecord; on
             </div>
 
             <p className="summary-meta-line">
-              <span>{displayDepartment}</span>
-              <span className="meta-divider">/</span>
               <span>{displayRole}</span>
             </p>
           </div>

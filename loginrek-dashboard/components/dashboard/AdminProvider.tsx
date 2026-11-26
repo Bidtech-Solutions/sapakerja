@@ -46,7 +46,8 @@ export function buildRecordsForDate(attendanceData: AttendanceRecord[], employee
       name: (item.name && item.name !== 'Karyawan') ? item.name : (matched.name || matched.fullName || item.name),
       type: (item.type && item.type !== '—') ? item.type : (matched.type || matched.employeeType || 'Karyawan'),
       department: (item.department && item.department !== 'Engineering') ? item.department : (matched.department || item.department),
-      role: (item.role && item.role !== 'Karyawan') ? item.role : (matched.role || item.role),
+      // Role / Jabatan: sumber utama tabel karyawan; data presensi hanya cadangan.
+      role: matched.role || item.role,
       avatar: item.avatar || matched.avatar || '',
       nik: item.nik || matched.nik || `LR-${String(item.userId || matched.id).padStart(5, '0')}`,
     };

@@ -479,7 +479,7 @@ function AttendancePage({ attendanceData = [], employeesData = [] }: AttendanceP
             id="search-attendance"
             type="text"
             className="search-input"
-            placeholder="Cari nama karyawan..."
+            placeholder="Cari nama atau jabatan..."
             value={searchQuery}
             onChange={(e) => {
               setSearchQuery(e.target.value);
@@ -497,7 +497,7 @@ function AttendancePage({ attendanceData = [], employeesData = [] }: AttendanceP
               <tr>
                 <th className="th-employee">KARYAWAN</th>
                 <th className="th-type">TIPE</th>
-                <th className="th-dept">DIVISI &amp; PERAN</th>
+                <th className="th-dept">ROLE / JABATAN</th>
                 <th className="th-time">JAM DATANG</th>
                 <th className="th-status">STATUS ABSEN</th>
                 <th className="th-action">TINDAKAN</th>
@@ -538,11 +538,10 @@ function AttendancePage({ attendanceData = [], employeesData = [] }: AttendanceP
                       </span>
                     </td>
 
-                    {/* Divisi & Peran */}
+                    {/* Role / Jabatan (dari tabel karyawan) */}
                     <td>
                       <div className="dept-cell">
-                        <span className="dept-name">{item.department}</span>
-                        <span className="role-name">{item.role}</span>
+                        <span className="dept-name">{item.role || '—'}</span>
                       </div>
                     </td>
 
