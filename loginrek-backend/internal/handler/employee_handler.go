@@ -211,6 +211,12 @@ func (h *EmployeeHandler) Update(c *gin.Context) {
 		}
 	}
 
+	// avatarUrl berisi teks kosong = hapus foto (tombol "Hapus Foto" di dashboard). Bila field
+	// tidak dikirim sama sekali, foto tidak berubah.
+	if req.AvatarURL != nil && *req.AvatarURL == "" {
+		user.AvatarURL = nil
+	}
+
 	// Kompresi Gambar ke WebP (maks 1280x720) & Upload ke RustFS jika ada avatar baru
 	if req.AvatarURL != nil && *req.AvatarURL != "" {
 		avatarInput := *req.AvatarURL

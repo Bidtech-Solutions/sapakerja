@@ -147,6 +147,12 @@ func (h *AuthHandler) UpdateProfile(c *gin.Context) {
 		user.FullName = req.FullName
 	}
 
+	// avatarUrl berisi teks kosong = hapus foto profil sendiri (Pengaturan di dashboard). Bila field
+	// tidak dikirim sama sekali, foto tidak berubah.
+	if req.AvatarURL != nil && *req.AvatarURL == "" {
+		user.AvatarURL = nil
+	}
+
 	// Otomatis Kompresi Gambar ke WebP (maks 1280x720) & Upload ke RustFS / S3
 	if req.AvatarURL != nil && *req.AvatarURL != "" {
 		avatarInput := *req.AvatarURL

@@ -92,6 +92,7 @@ email tak terdaftar maupun kata sandi salah.
 ```
 Akun yang diubah selalu pemilik token. Mengganti kata sandi wajib menyertakan `currentPassword`
 yang benar (min. 6 karakter untuk yang baru) — salah → 400. `avatarUrl` base64 dikompres ke WebP.
+`avatarUrl: ""` (teks kosong) **menghapus** foto (kolom jadi `null`); bila field tidak dikirim, foto tidak berubah.
 
 ### `GET /attendances/today` 🔒
 ```json
@@ -147,7 +148,9 @@ Query: `page` (1), `limit` (20), `all=true` (limit 500), `date=YYYY-MM-DD`. Urut
 `POST` wajib: `fullName`, `role` (jabatan, teks bebas — **bukan** hak akses), `password` (min. 6).
 Opsional: `email` (dibuat otomatis bila kosong; 400 bila sudah terdaftar), `department`,
 `employeeType`, `phone`, `avatarUrl`. Akun baru selalu `isAdmin = false`. `PUT` menerima field
-yang sama, semuanya opsional. Respons: 201 / 200.
+yang sama, semuanya opsional. Respons: 201 / 200. Pada `PUT`, `avatarUrl: ""` (teks kosong)
+**menghapus** foto karyawan; bila field tidak dikirim, foto tidak berubah. (Berkas gambar lama
+tidak ikut dihapus dari penyimpanan; hanya referensinya di database.)
 
 <!-- DIUBAH (OTA): seluruh bagian "Update OTA" baru; sumbernya loginrek-backend/internal/updates/updates.go. -->
 ## Update OTA (expo-updates)

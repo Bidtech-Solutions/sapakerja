@@ -280,6 +280,62 @@ func TestEmployeeAPI_CannotCreateAdminAndAdminsAreProtected(t *testing.T) {
 	}
 }
 
+// avatarUrl berisi teks kosong = hapus foto; field yang tidak dikirim = foto tidak berubah.
+func TestAvatarRemoval_EmptyAvatarUrlClearsPhoto(t *testing.T) {
+	e := newEnv(t)
+	adminTok := e.login(t, adminEmail, adminPassword)
+	staffTok := e.login(t, staffEmail, staffPassword)
+
+	avatarOf := func(email string) *string {
+		var u domain.User
+		if err := e.db.Where("email = ?", email).First(&u).Error; err != nil {
+			t.Fatal(err)
+		}
+		return u.AvatarURL
+	}
+	setAvatar := func(email, path string) {
+		if err := e.db.Model(&domain.User{}).Where("email = ?", email).Update("avatar_url", path).Error; err != nil {
+			t.Fatal(err)
+		}
+	}
+	var staff domain.User
+	e.db.Where("email = ?", staffEmail).First(&staff)
+
+	// Dashboard: PUT /employees/:id
+	setAvatar(staffEmail, "avatars/lama.webp")
+	if code, out := e.do(t, "PUT", "/api/v1/employees/"+itoa(staff.ID), adminTok, map[string]any{"fullName": "Staff Baru"}); code != 200 {
+		t.Fatalf("ubah nama: %d %v", code, out)
+	}
+	if a := avatarOf(staffEmail); a == nil || *a != "avatars/lama.webp" {
+		t.Fatalf("tanpa field avatarUrl, foto tidak boleh berubah, dapat %v", a)
+	}
+	if code, out := e.do(t, "PUT", "/api/v1/employees/"+itoa(staff.ID), adminTok, map[string]any{"fullName": "Staff Baru", "avatarUrl": ""}); code != 200 {
+		t.Fatalf("hapus foto karyawan: %d %v", code, out)
+	}
+	if a := avatarOf(staffEmail); a != nil {
+		t.Fatalf("avatarUrl kosong harus menghapus foto, dapat %v", *a)
+	}
+	code, out := e.do(t, "GET", "/api/v1/auth/me", staffTok, nil)
+	if code != 200 || out["data"].(map[string]any)["avatarUrl"] != nil {
+		t.Fatalf("/auth/me harus menampilkan avatarUrl null, dapat %d %v", code, out)
+	}
+
+	// Profil sendiri: PUT /auth/profile (tombol hapus foto di Pengaturan dashboard)
+	setAvatar(adminEmail, "avatars/admin.webp")
+	if code, _ := e.do(t, "PUT", "/api/v1/auth/profile", adminTok, map[string]any{"fullName": "HR"}); code != 200 {
+		t.Fatalf("ubah nama sendiri: %d", code)
+	}
+	if a := avatarOf(adminEmail); a == nil {
+		t.Fatal("tanpa field avatarUrl, foto sendiri tidak boleh terhapus")
+	}
+	if code, _ := e.do(t, "PUT", "/api/v1/auth/profile", adminTok, map[string]any{"fullName": "HR", "avatarUrl": ""}); code != 200 {
+		t.Fatalf("hapus foto sendiri: %d", code)
+	}
+	if a := avatarOf(adminEmail); a != nil {
+		t.Fatalf("avatarUrl kosong harus menghapus foto sendiri, dapat %v", *a)
+	}
+}
+
 func itoa(n uint) string {
 	b, _ := json.Marshal(n)
 	return string(b)
