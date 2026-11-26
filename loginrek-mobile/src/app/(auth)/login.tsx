@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ComponentRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentRef } from 'react';
 import {
   ActivityIndicator,
   BackHandler,
@@ -19,9 +19,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 
+import { getAppInfo } from '@/lib/app-info';
 import { authApi, setAccessToken, ApiError } from '@/lib/api';
 import { tokenStorage, userStore, UserAccount } from '@/lib/session';
-import { colors, Text, TextInput } from '@/lib/theme';
+import { colors, spacing, Text, TextInput } from '@/lib/theme';
 
 /** Jarak (dp) antara form dan keyboard / tepi atas layar saat form digeser. */
 const FORM_MARGIN = 16;
@@ -29,6 +30,7 @@ const FORM_MARGIN = 16;
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
+  const appInfo = useMemo(() => getAppInfo(t('appInfo.embedded')), [t]);
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -332,6 +334,15 @@ export default function LoginScreen() {
                 </>
               )}
             </Pressable>
+
+            {/* Info versi di pojok bawah (sama seperti di Profil); boleh tertutup keyboard. */}
+            <View style={styles.appInfo} accessibilityLabel={t('appInfo.label')}>
+              <Text style={styles.appInfoEnvironment}>{appInfo.environment}</Text>
+              <Text style={styles.appInfoLine}>{appInfo.versionLine}</Text>
+              <Text style={styles.appInfoLine} selectable>
+                {appInfo.ota}
+              </Text>
+            </View>
           </View>
         </Pressable>
       </ScrollView>
@@ -487,5 +498,20 @@ const styles = StyleSheet.create({
   },
   arrowIcon: {
     marginLeft: 8,
+  },
+  appInfo: {
+    marginTop: 'auto',
+    paddingTop: spacing.xl,
+    alignItems: 'center',
+    gap: 2,
+  },
+  appInfoEnvironment: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.textMuted,
+  },
+  appInfoLine: {
+    fontSize: 12,
+    color: colors.textMuted,
   },
 });

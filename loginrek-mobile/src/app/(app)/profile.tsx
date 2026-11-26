@@ -18,11 +18,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Feather } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
-import Constants from 'expo-constants';
 import * as ImagePicker from 'expo-image-picker';
-import * as Updates from 'expo-updates';
 
-import { authApi, ApiError, env, getMediaUrl, setAccessToken } from '@/lib/api';
+import { getAppInfo } from '@/lib/app-info';
+import { authApi, ApiError, getMediaUrl, setAccessToken } from '@/lib/api';
 import { tokenStorage, userStore, UserAccount } from '@/lib/session';
 import { classifyPermission, mediaLibraryPermission } from '@/lib/permissions';
 import { colors, spacing, Text, TextInput } from '@/lib/theme';
@@ -33,89 +32,6 @@ function formatTime24(date: Date): string {
   const m = String(date.getMinutes()).padStart(2, '0');
   const s = String(date.getSeconds()).padStart(2, '0');
   return `${h}:${m}:${s} WIB`;
-}
-
-// ---- Info versi aplikasi (lingkungan, versi, build, rilis OTA) untuk bagian bawah layar ----
-
-type AppInfo = {
-  /** Production / Preview / Development */
-  environment: string;
-  /** Contoh: "v1.0.2 Build (3)" */
-  versionLine: string;
-  /** publishId rilis OTA (mis. 20261113T041500Z-57a5cf1), atau "Bawaan build" bila belum ada update OTA. */
-  ota: string;
-};
-
-type RawAppInfo = {
-  appEnv: string;
-  nativeVersion: string | null;
-  nativeBuild: string | null;
-  configVersion: string | null;
-  isEmbeddedLaunch: boolean;
-  updateId: string | null;
-  publishId: string | null;
-};
-
-function capitalize(value: string): string {
-  return value ? value.charAt(0).toUpperCase() + value.slice(1) : value;
-}
-
-/** Susun teks info versi dari nilai mentah. */
-function buildAppInfo(raw: RawAppInfo, embeddedLabel: string): AppInfo {
-  const version = raw.nativeVersion ?? raw.configVersion;
-  const parts = [
-    version ? `v${version}` : null,
-    raw.nativeBuild ? `Build (${raw.nativeBuild})` : null,
-  ];
-
-  let ota = embeddedLabel;
-  if (!raw.isEmbeddedLaunch) {
-    ota = raw.publishId ?? (raw.updateId ? raw.updateId.slice(0, 8) : embeddedLabel);
-  }
-
-  return {
-    environment: capitalize(raw.appEnv),
-    versionLine: parts.filter(Boolean).join(' ') || '-',
-    ota,
-  };
-}
-
-/**
- * expo-application butuh modul native; pada binary lama yang dibuat tanpa modul itu,
- * `require` melempar error. Jangan sampai layar Profil ikut crash.
- */
-function readApplication(): { version: string | null; build: string | null } {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const Application = require('expo-application') as typeof import('expo-application');
-    return { version: Application.nativeApplicationVersion, build: Application.nativeBuildVersion };
-  } catch {
-    return { version: null, build: null };
-  }
-}
-
-function readPublishId(): string | null {
-  // CI menaruh publishId di manifest.metadata (lihat .github/workflows/loginrek.yml).
-  const metadata = (Updates.manifest as { metadata?: Record<string, unknown> } | undefined)
-    ?.metadata;
-  const value = metadata?.publishId;
-  return typeof value === 'string' && value ? value : null;
-}
-
-function getAppInfo(embeddedLabel: string): AppInfo {
-  const app = readApplication();
-  return buildAppInfo(
-    {
-      appEnv: env.appEnv,
-      nativeVersion: app.version,
-      nativeBuild: app.build,
-      configVersion: Constants.expoConfig?.version ?? null,
-      isEmbeddedLaunch: Updates.isEmbeddedLaunch,
-      updateId: Updates.updateId,
-      publishId: readPublishId(),
-    },
-    embeddedLabel,
-  );
 }
 
 export default function ProfileScreen() {
