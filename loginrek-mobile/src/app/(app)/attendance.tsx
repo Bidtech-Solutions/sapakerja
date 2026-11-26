@@ -211,10 +211,11 @@ function PermissionPrompt({ kind, phase, onContinue, onOpenSettings, onBack }: P
   return (
     <ScrollView
       style={promptStyles.scroll}
-      // Jangan lebih kecil dari 110 semula; naik bila bottom bar lebih tinggi (navigasi 3 tombol Android).
+      // Ruang bawah = tinggi bottom bar (64 + inset) + tonjolan tombol kamera di tengah bar (~24)
+      // + ruang napas (~16), agar tombol "Kembali ke Beranda" tidak tertimpa tombol kamera.
       contentContainerStyle={[
         promptStyles.content,
-        { paddingBottom: Math.max(110, 80 + Math.max(insets.bottom, 12)) },
+        { paddingBottom: 104 + Math.max(insets.bottom, 12) },
       ]}
       showsVerticalScrollIndicator={false}
     >
