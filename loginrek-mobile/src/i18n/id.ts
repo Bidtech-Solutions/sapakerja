@@ -74,6 +74,7 @@ const id = {
     submit: 'Masuk',
     fillAllFields: 'Silakan isi email dan kata sandi kamu',
     invalidCredentials: 'Email atau kata sandi salah.',
+    inactiveAccount: 'Akun kamu sudah tidak aktif. Hubungi HR.',
     serverError: 'Terjadi kesalahan pada server. Coba lagi beberapa saat.',
     offline: 'Tidak dapat terhubung ke server. Login pertama wajib online.',
   },

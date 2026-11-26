@@ -159,7 +159,9 @@ export default function LoginScreen() {
         setErrorMessage(
           err.status === 400 || err.status === 401
             ? t('login.invalidCredentials')
-            : t('login.serverError'),
+            : err.status === 403
+              ? t('login.inactiveAccount') // status kepegawaian Non-Aktif
+              : t('login.serverError'),
         );
       } else {
         setErrorMessage(t('login.offline'));

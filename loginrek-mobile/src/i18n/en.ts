@@ -73,6 +73,7 @@ const en: Translation = {
     submit: 'Sign In',
     fillAllFields: 'Please enter your email and password',
     invalidCredentials: 'Incorrect email or password.',
+    inactiveAccount: 'Your account is no longer active. Please contact HR.',
     serverError: 'Something went wrong on the server. Please try again shortly.',
     offline: 'Unable to reach the server. Your first sign-in requires an internet connection.',
   },
