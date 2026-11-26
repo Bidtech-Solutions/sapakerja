@@ -23,6 +23,9 @@ import { authApi, setAccessToken, ApiError } from '@/lib/api';
 import { tokenStorage, userStore, UserAccount } from '@/lib/session';
 import { colors, Text, TextInput } from '@/lib/theme';
 
+/** Jarak (dp) antara form dan keyboard / tepi atas layar saat form digeser. */
+const FORM_MARGIN = 16;
+
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
@@ -33,17 +36,31 @@ export default function LoginScreen() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const scrollViewRef = useRef<ComponentRef<typeof ScrollView>>(null);
+  const identifierInputRef = useRef<ComponentRef<typeof RNTextInput>>(null);
   const passwordInputRef = useRef<ComponentRef<typeof RNTextInput>>(null);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+  // Tepi atas keyboard dalam koordinat layar; null bila keyboard tertutup.
+  const keyboardTopRef = useRef<number | null>(null);
+  // Ukuran yang dibutuhkan untuk menghitung pergeseran (diisi lewat onLayout).
+  // Posisi kolom & tombol relatif terhadap kartu putih; cardY relatif terhadap isi ScrollView.
+  const layoutRef = useRef({
+    viewportHeight: 0,
+    cardY: 0,
+    emailTop: 0,
+    passwordTop: 0,
+    buttonBottom: 0,
+  });
 
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
     const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
 
     const showSub = Keyboard.addListener(showEvent, (e) => {
+      keyboardTopRef.current = e.endCoordinates.screenY;
       setKeyboardHeight(e.endCoordinates.height);
     });
     const hideSub = Keyboard.addListener(hideEvent, () => {
+      keyboardTopRef.current = null;
       setKeyboardHeight(0);
     });
 
@@ -53,16 +70,37 @@ export default function LoginScreen() {
     };
   }, []);
 
-  function handleIdentifierFocus() {
-    setTimeout(() => {
-      scrollViewRef.current?.scrollTo({ y: 70, animated: true });
-    }, 150);
+  /**
+   * Geser layar SECUKUPNYA agar kolom Email, Password, dan tombol Masuk terlihat tepat di atas
+   * keyboard (bukan scrollToEnd, yang membuat layar naik terlalu jauh). Email dan Password
+   * memakai posisi yang sama sehingga pindah kolom tidak membuat layar melompat.
+   */
+  function scrollFormAboveKeyboard() {
+    const keyboardTop = keyboardTopRef.current;
+    const l = layoutRef.current;
+    if (keyboardTop === null || l.viewportHeight === 0) return;
+    const passwordFocused = passwordInputRef.current?.isFocused() ?? false;
+    if (!passwordFocused && !identifierInputRef.current?.isFocused()) return;
+
+    // Tinggi ScrollView yang tidak tertutup keyboard. Bila sistem sudah mengecilkan layar
+    // (sebagian HP Android), viewportHeight sudah lebih kecil dan dipakai apa adanya.
+    const visible = Math.min(l.viewportHeight, keyboardTop);
+    const formTop = l.cardY + l.emailTop - FORM_MARGIN;
+    const formBottom = l.cardY + l.buttonBottom + FORM_MARGIN;
+
+    let target = formBottom - visible;
+    if (target > formTop) {
+      // Layar terlalu kecil untuk seluruh form: utamakan kolom yang sedang diketik.
+      target = passwordFocused ? Math.min(target, l.cardY + l.passwordTop - FORM_MARGIN) : formTop;
+    }
+    scrollViewRef.current?.scrollTo({ y: Math.max(0, target), animated: true });
   }
 
-  function handlePasswordFocus() {
-    setTimeout(() => {
-      scrollViewRef.current?.scrollToEnd({ animated: true });
-    }, 150);
+  // Pindah kolom saat keyboard sudah terbuka: geser langsung. Bila keyboard baru akan muncul,
+  // pergeseran dilakukan di onContentSizeChange, setelah ruang seukuran keyboard terpasang
+  // (bila digeser lebih awal, pergeseran terpotong dan kolom Password tetap tertutup).
+  function handleFieldFocus() {
+    if (keyboardTopRef.current !== null) scrollFormAboveKeyboard();
   }
 
   // Cegah tombol back Android kembali ke halaman Home atau sesi sebelumnya
@@ -129,16 +167,22 @@ export default function LoginScreen() {
     }
   }
 
+  // Ruang tambahan saat keyboard terbuka agar form bisa digeser ke atas keyboard.
+  const keyboardSpace = keyboardHeight > 0 ? keyboardHeight + 36 : 0;
+
   return (
     <View style={styles.screen}>
       <StatusBar style="light" />
 
       <ScrollView
         ref={scrollViewRef}
-        contentContainerStyle={[
-          styles.scrollContent,
-          keyboardHeight > 0 && { paddingBottom: keyboardHeight + 36 },
-        ]}
+        contentContainerStyle={styles.scrollContent}
+        onLayout={(e) => {
+          layoutRef.current.viewportHeight = e.nativeEvent.layout.height;
+        }}
+        onContentSizeChange={() => {
+          if (keyboardTopRef.current !== null) scrollFormAboveKeyboard();
+        }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
@@ -167,8 +211,16 @@ export default function LoginScreen() {
           </LinearGradient>
 
           {/* Card Form Putih di Bawah */}
+          {/* Ruang seukuran keyboard ada DI DALAM kartu putih (bukan di luar) agar area di
+              belakang keyboard berwarna putih, bukan warna latar layar yang hijau. */}
           <View
-            style={[styles.cardContainer, { paddingBottom: Math.max(insets.bottom, 24) + 28 }]}
+            style={[
+              styles.cardContainer,
+              { paddingBottom: Math.max(insets.bottom, 24) + 28 + keyboardSpace },
+            ]}
+            onLayout={(e) => {
+              layoutRef.current.cardY = e.nativeEvent.layout.y;
+            }}
           >
             {/* Judul Form */}
             <Text style={styles.formTitle}>{t('login.title')}</Text>
@@ -183,16 +235,22 @@ export default function LoginScreen() {
             ) : null}
 
             {/* Input Email / No. HP */}
-            <View style={styles.inputGroup}>
+            <View
+              style={styles.inputGroup}
+              onLayout={(e) => {
+                layoutRef.current.emailTop = e.nativeEvent.layout.y;
+              }}
+            >
               <Text style={styles.label}>{t('login.identifierLabel')}</Text>
               <View style={styles.inputWrapper}>
                 <Feather name="mail" size={20} color="#94A3B8" style={styles.inputIcon} />
                 <TextInput
+                  ref={identifierInputRef}
                   style={styles.input}
                   placeholder={t('login.identifierPlaceholder')}
                   placeholderTextColor="#94A3B8"
                   value={identifier}
-                  onFocus={handleIdentifierFocus}
+                  onFocus={handleFieldFocus}
                   onChangeText={(text) => {
                     setIdentifier(text);
                     if (errorMessage) setErrorMessage(null);
@@ -201,13 +259,20 @@ export default function LoginScreen() {
                   keyboardType="email-address"
                   autoCorrect={false}
                   returnKeyType="next"
+                  // Tetap fokus saat Next ditekan agar keyboard tidak tertutup sesaat (layar melompat).
+                  submitBehavior="submit"
                   onSubmitEditing={() => passwordInputRef.current?.focus()}
                 />
               </View>
             </View>
 
             {/* Input Password */}
-            <View style={[styles.inputGroup, { marginTop: 18 }]}>
+            <View
+              style={[styles.inputGroup, { marginTop: 18 }]}
+              onLayout={(e) => {
+                layoutRef.current.passwordTop = e.nativeEvent.layout.y;
+              }}
+            >
               <Text style={styles.label}>{t('login.passwordLabel')}</Text>
               <View style={styles.inputWrapper}>
                 <Feather name="lock" size={20} color="#94A3B8" style={styles.inputIcon} />
@@ -217,7 +282,7 @@ export default function LoginScreen() {
                   placeholder={t('login.passwordPlaceholder')}
                   placeholderTextColor="#94A3B8"
                   value={password}
-                  onFocus={handlePasswordFocus}
+                  onFocus={handleFieldFocus}
                   onChangeText={(text) => {
                     setPassword(text);
                     if (errorMessage) setErrorMessage(null);
@@ -242,6 +307,10 @@ export default function LoginScreen() {
               accessibilityRole="button"
               accessibilityLabel={t('login.submit')}
               onPress={handleLogin}
+              onLayout={(e) => {
+                const { y, height } = e.nativeEvent.layout;
+                layoutRef.current.buttonBottom = y + height;
+              }}
               disabled={isLoading}
               style={({ pressed }) => [
                 styles.submitButton,

@@ -275,31 +275,37 @@ export default function HistoryScreen() {
   const tidakHadirCount = hasData ? currentMonth.tidakHadir : 0;
 
   // Gabungkan aktivitas presensi dinamis bila user baru saja melakukan presensi
-  const activitiesToDisplay: ActivityItem[] =
-    currentMonthServerActivities.length > 0
-      ? currentMonthServerActivities
-      : isCurrentMonth && currentUser?.history && currentUser.history.length > 0
-        ? [
-            ...currentUser.history.map((h) => {
-              const isLateRec = h.status === 'Terlambat';
-              const dateObj = parseISODate(h.date);
-              const isToday = dateObj ? isSameDay(dateObj, new Date()) : h.day.includes('Hari ini');
-              return {
-                id: `user-${h.id}`,
-                day: recordDayLabel(h),
-                time: recordTimeLabel(h),
-                status: statusLabel(isLateRec),
-                type: (isLateRec ? 'late' : 'on_time') as 'on_time' | 'late',
-                dayNum: recordDayNumber(h),
-                isToday,
-                photoUri: h.photoUri || (isToday ? currentUser.todayCheckIn?.photoUri : undefined),
-              };
-            }),
-            ...currentMonth.activities.filter(
-              (act) => !currentUser.history.some((h) => recordDayLabel(h) === act.day)
-            ),
-          ]
-        : currentMonth.activities;
+  const activitiesToDisplay = useMemo<ActivityItem[]>(
+    () =>
+      currentMonthServerActivities.length > 0
+        ? currentMonthServerActivities
+        : isCurrentMonth && currentUser?.history && currentUser.history.length > 0
+          ? [
+              ...currentUser.history.map((h) => {
+                const isLateRec = h.status === 'Terlambat';
+                const dateObj = parseISODate(h.date);
+                const isToday = dateObj
+                  ? isSameDay(dateObj, new Date())
+                  : h.day.includes('Hari ini');
+                return {
+                  id: `user-${h.id}`,
+                  day: recordDayLabel(h),
+                  time: recordTimeLabel(h),
+                  status: statusLabel(isLateRec),
+                  type: (isLateRec ? 'late' : 'on_time') as 'on_time' | 'late',
+                  dayNum: recordDayNumber(h),
+                  isToday,
+                  photoUri:
+                    h.photoUri || (isToday ? currentUser.todayCheckIn?.photoUri : undefined),
+                };
+              }),
+              ...currentMonth.activities.filter(
+                (act) => !currentUser.history.some((h) => recordDayLabel(h) === act.day),
+              ),
+            ]
+          : currentMonth.activities,
+    [currentMonthServerActivities, isCurrentMonth, currentUser, currentMonth],
+  );
 
   // Map aktivitas ke nomor tanggal (1..31) untuk ditampilkan pada kalender
   const attendanceMap = useMemo(() => {

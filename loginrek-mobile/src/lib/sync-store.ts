@@ -60,7 +60,8 @@ export const syncStore = {
   getQueue: async (): Promise<PendingAttendance[]> => {
     try {
       if (Platform.OS === 'web') {
-        const raw = typeof window !== 'undefined' ? window.localStorage.getItem(SYNC_QUEUE_KEY) : null;
+        const raw =
+          typeof window !== 'undefined' ? window.localStorage.getItem(SYNC_QUEUE_KEY) : null;
         return raw ? (JSON.parse(raw) as PendingAttendance[]) : [];
       }
       const raw = await SecureStore.getItemAsync(SYNC_QUEUE_KEY);
@@ -72,7 +73,7 @@ export const syncStore = {
 
   // Simpan data presensi offline ke memori lokal HP (SecureStore)
   addToQueue: async (
-    item: Omit<PendingAttendance, 'id' | 'recordedAt' | 'syncStatus'>
+    item: Omit<PendingAttendance, 'id' | 'recordedAt' | 'syncStatus'>,
   ): Promise<PendingAttendance> => {
     const queue = await syncStore.getQueue();
     const newItem: PendingAttendance = {

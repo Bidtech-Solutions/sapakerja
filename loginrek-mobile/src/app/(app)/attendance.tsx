@@ -183,6 +183,7 @@ type Props = {
  */
 function PermissionPrompt({ kind, phase, onContinue, onOpenSettings, onBack }: Props) {
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
 
   if (phase === 'checking' || phase === 'requesting') {
     return (
@@ -210,7 +211,11 @@ function PermissionPrompt({ kind, phase, onContinue, onOpenSettings, onBack }: P
   return (
     <ScrollView
       style={promptStyles.scroll}
-      contentContainerStyle={promptStyles.content}
+      // Jangan lebih kecil dari 110 semula; naik bila bottom bar lebih tinggi (navigasi 3 tombol Android).
+      contentContainerStyle={[
+        promptStyles.content,
+        { paddingBottom: Math.max(110, 80 + Math.max(insets.bottom, 12)) },
+      ]}
       showsVerticalScrollIndicator={false}
     >
       <View style={promptStyles.illustrationCircle}>
@@ -508,9 +513,9 @@ export default function AttendanceScreen() {
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   // Nilai animasi native (Sangat ringan, 60 FPS di GPU tanpa beban CPU)
-  const flashAnim = useRef(new Animated.Value(0)).current;
-  const previewFadeAnim = useRef(new Animated.Value(0)).current;
-  const previewSlideAnim = useRef(new Animated.Value(20)).current;
+  const [flashAnim] = useState(() => new Animated.Value(0));
+  const [previewFadeAnim] = useState(() => new Animated.Value(0));
+  const [previewSlideAnim] = useState(() => new Animated.Value(20));
 
   // Status Validasi Geofence Radius Kantor (Pencegah Curang)
   const [isInsideOffice, setIsInsideOffice] = useState<boolean>(true);
@@ -777,9 +782,9 @@ export default function AttendanceScreen() {
     try {
       let photoUri: string | null = null;
       if (Platform.OS !== 'web' && cameraRef.current?.takePictureAsync) {
+        // Cermin/tidaknya foto diatur prop `mirror` pada CameraView (opsi `mirror` di sini usang).
         const photo = await cameraRef.current.takePictureAsync({
           quality: 0.35,
-          mirror: false,
           base64: true,
         });
         photoUri = photo?.base64 ? `data:image/jpeg;base64,${photo.base64}` : (photo?.uri ?? null);
@@ -992,7 +997,9 @@ export default function AttendanceScreen() {
             contentContainerStyle={styles.previewScrollContent}
             showsVerticalScrollIndicator={false}
           >
-            {/* Foto Selfie Karyawan (Dibalik horizontal agar normal sesuai tampilan kamera & tidak mirror) */}
+            {/* Foto Selfie Karyawan: ditampilkan apa adanya (tidak dibalik lagi). Foto sudah seperti
+                cermin sejak dijepret (prop `mirror` CameraView), sama dengan tampilan kamera saat
+                membidik dan dengan foto di Riwayat / dashboard HR. */}
             <View style={styles.previewPhotoCard}>
               <Image
                 source={
@@ -1000,10 +1007,7 @@ export default function AttendanceScreen() {
                     ? { uri: capturedPhotoUri }
                     : require('@/assets/default-avatar.png')
                 }
-                style={[
-                  styles.previewPhotoImage,
-                  capturedPhotoUri !== 'fallback' && { transform: [{ scaleX: -1 }] },
-                ]}
+                style={styles.previewPhotoImage}
                 resizeMode="cover"
               />
             </View>
@@ -1113,11 +1117,13 @@ export default function AttendanceScreen() {
         <View style={styles.cameraContainer}>
           {/* Kamera Asli di HP (iOS / Android) */}
           {Platform.OS !== 'web' ? (
+            // Tampilan kamera depan selalu seperti cermin di semua HP; `mirror` membuat foto hasil
+            // jepret ikut seperti cermin, jadi sama persis dengan yang terlihat saat membidik.
             <CameraView
               ref={cameraRef}
               style={styles.cameraBackground}
               facing="front"
-              mirror={false}
+              mirror
               pictureSize="1280x720"
             />
           ) : cameraStream ? (
