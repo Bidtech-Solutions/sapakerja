@@ -199,7 +199,16 @@ func (h *EmployeeHandler) Update(c *gin.Context) {
 		user.Department = req.Department
 	}
 	if req.EmployeeType != nil && *req.EmployeeType != "" {
-		user.EmployeeType = *req.EmployeeType
+		empType := strings.TrimSpace(*req.EmployeeType)
+		if strings.EqualFold(empType, domain.EmployeeTypeInactive) {
+			// Akun admin/HR tidak boleh dinonaktifkan (mencegah HR terkunci dari dashboard).
+			if user.IsAdmin {
+				c.JSON(http.StatusBadRequest, gin.H{"message": "Akun Administrator tidak dapat dinonaktifkan."})
+				return
+			}
+			empType = domain.EmployeeTypeInactive // penulisan baku
+		}
+		user.EmployeeType = empType
 	}
 	if req.Phone != nil {
 		user.Phone = req.Phone

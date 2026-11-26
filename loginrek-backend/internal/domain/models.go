@@ -23,6 +23,15 @@ type User struct {
 	Attendances  []Attendance `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE" json:"attendances,omitempty"`
 }
 
+// EmployeeTypeInactive = status kepegawaian "Non-Aktif": akun tidak boleh login maupun absen.
+const EmployeeTypeInactive = "Non-Aktif"
+
+// IsInactive: karyawan berstatus Non-Aktif. Akun admin/HR tidak pernah dianggap non-aktif
+// agar HR tidak bisa terkunci dari dashboard.
+func (u User) IsInactive() bool {
+	return !u.IsAdmin && strings.EqualFold(strings.TrimSpace(u.EmployeeType), EmployeeTypeInactive)
+}
+
 func (u *User) GetInitials() string {
 	parts := strings.Fields(strings.TrimSpace(u.FullName))
 	if len(parts) == 0 {

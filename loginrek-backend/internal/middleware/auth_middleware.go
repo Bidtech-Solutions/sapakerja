@@ -87,6 +87,18 @@ func RequireAuth(secret string, db *gorm.DB) gin.HandlerFunc {
 			return
 		}
 
+		// Karyawan Non-Aktif: token lama pun ditolak (401), sehingga aplikasi HP otomatis keluar
+		// ke layar login. Berlaku juga untuk absen, karena semua endpoint karyawan lewat sini.
+		if user.IsInactive() {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"errors": []gin.H{
+					{"message": "Unauthorized access: Account is inactive"},
+				},
+			})
+			c.Abort()
+			return
+		}
+
 		c.Set("currentUser", user)
 		c.Set("userId", user.ID)
 		c.Next()

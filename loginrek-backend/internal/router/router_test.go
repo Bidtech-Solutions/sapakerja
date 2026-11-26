@@ -336,6 +336,59 @@ func TestAvatarRemoval_EmptyAvatarUrlClearsPhoto(t *testing.T) {
 	}
 }
 
+// Status kepegawaian Non-Aktif: tidak bisa login, token lama ditolak (termasuk absen), admin kebal.
+func TestInactiveEmployee_CannotLoginOrUseOldToken(t *testing.T) {
+	e := newEnv(t)
+	adminTok := e.login(t, adminEmail, adminPassword)
+	staffTok := e.login(t, staffEmail, staffPassword) // token dibuat SEBELUM dinonaktifkan
+
+	var staff, admin domain.User
+	e.db.Where("email = ?", staffEmail).First(&staff)
+	e.db.Where("email = ?", adminEmail).First(&admin)
+
+	// Admin menonaktifkan karyawan lewat dashboard (penulisan huruf diabaikan, disimpan baku).
+	code, out := e.do(t, "PUT", "/api/v1/employees/"+itoa(staff.ID), adminTok, map[string]any{"employeeType": "non-aktif"})
+	if code != 200 {
+		t.Fatalf("nonaktifkan karyawan: %d %v", code, out)
+	}
+	e.db.Where("email = ?", staffEmail).First(&staff)
+	if staff.EmployeeType != domain.EmployeeTypeInactive {
+		t.Fatalf("status harus tersimpan baku %q, dapat %q", domain.EmployeeTypeInactive, staff.EmployeeType)
+	}
+
+	// Login: kata sandi benar -> 403 dengan pesan khusus; kata sandi salah -> tetap 401 seragam.
+	code, out = e.do(t, "POST", "/api/v1/auth/login", "", map[string]any{"email": staffEmail, "password": staffPassword})
+	if code != http.StatusForbidden || out["message"] != "Akun tidak aktif. Hubungi HR." {
+		t.Fatalf("login non-aktif harus 403 + pesan khusus, dapat %d %v", code, out)
+	}
+	code, out = e.do(t, "POST", "/api/v1/auth/login", "", map[string]any{"email": staffEmail, "password": "salah-banget"})
+	if code != http.StatusUnauthorized || out["message"] != "Email atau kata sandi salah." {
+		t.Fatalf("password salah harus tetap 401 seragam, dapat %d %v", code, out)
+	}
+
+	// Token lama ditolak di semua endpoint karyawan (profil dan absen).
+	for _, path := range []string{"/api/v1/auth/me", "/api/v1/attendances/today", "/api/v1/attendances/my"} {
+		if code, _ := e.do(t, "GET", path, staffTok, nil); code != http.StatusUnauthorized {
+			t.Fatalf("token karyawan non-aktif harus 401 di %s, dapat %d", path, code)
+		}
+	}
+	if code, _ := e.do(t, "POST", "/api/v1/attendances/check-in", staffTok, map[string]any{}); code != http.StatusUnauthorized {
+		t.Fatalf("absen karyawan non-aktif harus 401, dapat %d", code)
+	}
+
+	// Admin tidak bisa dinonaktifkan, dan tetap bisa login.
+	if code, _ := e.do(t, "PUT", "/api/v1/employees/"+itoa(admin.ID), adminTok, map[string]any{"employeeType": "Non-Aktif"}); code != 400 {
+		t.Fatalf("menonaktifkan admin harus 400, dapat %d", code)
+	}
+	e.login(t, adminEmail, adminPassword)
+
+	// Diaktifkan kembali: bisa login lagi.
+	if code, _ := e.do(t, "PUT", "/api/v1/employees/"+itoa(staff.ID), adminTok, map[string]any{"employeeType": "Karyawan"}); code != 200 {
+		t.Fatalf("aktifkan kembali: %d", code)
+	}
+	e.login(t, staffEmail, staffPassword)
+}
+
 func itoa(n uint) string {
 	b, _ := json.Marshal(n)
 	return string(b)

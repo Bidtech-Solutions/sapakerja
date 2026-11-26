@@ -83,7 +83,8 @@ kata sandi cadangan.
                       "avatarUrl": null, "isAdmin": false } } }
 ```
 Gagal: 400 (field kosong) atau **401** `Email atau kata sandi salah.` — pesan yang sama untuk
-email tak terdaftar maupun kata sandi salah.
+email tak terdaftar maupun kata sandi salah. **403** `Akun tidak aktif. Hubungi HR.` bila kata
+sandi benar tetapi `employeeType` akun = `Non-Aktif` (lihat "Status kepegawaian Non-Aktif").
 
 ### `PUT /auth/profile` 🔒
 ```json
@@ -151,6 +152,12 @@ Opsional: `email` (dibuat otomatis bila kosong; 400 bila sudah terdaftar), `depa
 yang sama, semuanya opsional. Respons: 201 / 200. Pada `PUT`, `avatarUrl: ""` (teks kosong)
 **menghapus** foto karyawan; bila field tidak dikirim, foto tidak berubah. (Berkas gambar lama
 tidak ikut dihapus dari penyimpanan; hanya referensinya di database.)
+
+**Status kepegawaian Non-Aktif.** `employeeType` bernilai `Karyawan`, `Magang`, `PKL`, atau
+`Non-Aktif` (penulisan huruf diabaikan, disimpan baku sebagai `Non-Aktif`). Karyawan Non-Aktif:
+login → **403**; token yang sudah ada ditolak **401** di semua endpoint karyawan (profil, absen),
+sehingga aplikasi mobile otomatis keluar ke layar login. Diaktifkan kembali dengan mengubah
+`employeeType` ke nilai lain. Akun admin tidak bisa dinonaktifkan (`PUT` → 400).
 
 <!-- DIUBAH (OTA): seluruh bagian "Update OTA" baru; sumbernya loginrek-backend/internal/updates/updates.go. -->
 ## Update OTA (expo-updates)

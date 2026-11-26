@@ -35,6 +35,9 @@ type LoginRequest struct {
 // Pesan yang sama untuk email tak terdaftar maupun kata sandi salah (mencegah penebakan akun).
 const invalidCredentialsMsg = "Email atau kata sandi salah."
 
+// Status kepegawaian Non-Aktif: login ditolak (403) setelah kata sandi terbukti benar.
+const inactiveAccountMsg = "Akun tidak aktif. Hubungi HR."
+
 // Hash pembanding agar bcrypt tetap berjalan saat akun tidak ditemukan (waktu respons seragam).
 var dummyPasswordHash, _ = bcrypt.GenerateFromPassword([]byte("loginrek-dummy-password"), bcrypt.DefaultCost)
 
@@ -64,6 +67,14 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	if !found || pwErr != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"message": invalidCredentialsMsg,
+		})
+		return
+	}
+
+	// Kata sandi sudah benar, jadi pesan khusus ini tidak membuka petunjuk akun bagi orang lain.
+	if user.IsInactive() {
+		c.JSON(http.StatusForbidden, gin.H{
+			"message": inactiveAccountMsg,
 		})
 		return
 	}
