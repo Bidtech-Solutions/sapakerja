@@ -313,6 +313,7 @@ export default function Page() {
               <option value="Karyawan">Karyawan</option>
               <option value="Magang">Magang</option>
               <option value="PKL">PKL</option>
+              <option value="Non-Aktif">Non-Aktif</option>
             </select>
             <ChevronDown size={14} className="trailing-arrow" />
           </div>

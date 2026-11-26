@@ -3328,8 +3328,8 @@
 /* Status Kepegawaian Segmented Grid */
 .dash .status-segmented-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 14px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
 }
 
 .dash .status-segment-btn {

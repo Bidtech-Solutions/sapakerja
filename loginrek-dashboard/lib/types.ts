@@ -34,7 +34,7 @@ export interface Employee {
   email: string;
   role: string;
   department: string;
-  /** Status kepegawaian: Karyawan | Magang | PKL. */
+  /** Status kepegawaian: Karyawan | Magang | PKL | Non-Aktif (tidak bisa login/absen). */
   type: string;
   employeeType?: string;
   phone?: string;

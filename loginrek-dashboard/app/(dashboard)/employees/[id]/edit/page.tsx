@@ -264,7 +264,23 @@ function EditEmployeePage({ employee, onBack, onSave, onDelete }: EditEmployeePa
                     <span className="status-segment-title">PKL</span>
                     <span className="status-segment-sub">Vokasi</span>
                   </div>
+
+                  {/* Option 4: Non-Aktif (tidak bisa login maupun absen) */}
+                  <div
+                    className={`status-segment-btn ${statusKepegawaian === 'Non-Aktif' ? 'active' : ''}`}
+                    onClick={() => setStatusKepegawaian('Non-Aktif')}
+                    role="button"
+                    tabIndex={0}
+                  >
+                    <span className="status-segment-title">Non-Aktif</span>
+                    <span className="status-segment-sub">Tanpa akses</span>
+                  </div>
                 </div>
+                {statusKepegawaian === 'Non-Aktif' && (
+                  <span className="edit-field-hint">
+                    Karyawan non-aktif tidak bisa login dan tidak bisa absen di aplikasi. Pilih status lain untuk mengaktifkannya kembali.
+                  </span>
+                )}
               </div>
             </form>
           </div>
