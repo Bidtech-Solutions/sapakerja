@@ -21,6 +21,7 @@ import { router, useFocusEffect } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 
 import { getAppInfo } from '@/lib/app-info';
+import { refreshProfile } from '@/lib/profile-sync';
 import { authApi, ApiError, getMediaUrl, setAccessToken } from '@/lib/api';
 import { tokenStorage, userStore, UserAccount } from '@/lib/session';
 import { classifyPermission, mediaLibraryPermission } from '@/lib/permissions';
@@ -62,16 +63,12 @@ export default function ProfileScreen() {
     setFullName(u.fullName);
     setImageError(false);
 
-    try {
-      const res = await authApi.me();
-      if (res?.data?.avatarUrl) {
-        if (u && u.avatarUrl !== res.data.avatarUrl) {
-          const updated = { ...u, avatarUrl: res.data.avatarUrl };
-          await userStore.setCurrentUser(updated);
-          setCurrentUser(updated);
-        }
-      }
-    } catch {}
+    // Samakan nama/jabatan/foto dengan server (mis. nama diubah admin di dashboard)
+    const refreshed = await refreshProfile();
+    if (refreshed) {
+      setCurrentUser(refreshed);
+      setFullName(refreshed.fullName);
+    }
   }, []);
 
   // Ambil data user aktif saat ini (re-sync setiap layar profil fokus)

@@ -16,6 +16,7 @@ import { Feather } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 
 import { userStore, UserAccount, AttendanceRecord } from '@/lib/session';
+import { refreshProfile } from '@/lib/profile-sync';
 import { attendanceApi, AttendanceResponse, getMediaUrl } from '@/lib/api';
 import {
   isSameDay,
@@ -195,6 +196,9 @@ export default function HistoryScreen() {
         await userStore.setCurrentUser(u);
       }
     } catch {}
+
+    // 3. Samakan nama/jabatan/foto dengan server (mis. nama diubah admin di dashboard)
+    u = (await refreshProfile()) ?? u;
 
     setCurrentUser(u);
   }, []);

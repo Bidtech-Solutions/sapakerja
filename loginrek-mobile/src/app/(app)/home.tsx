@@ -18,6 +18,7 @@ import { router, useFocusEffect } from 'expo-router';
 
 import { attendanceApi, getMediaUrl } from '@/lib/api';
 import { userStore, UserAccount, AttendanceRecord } from '@/lib/session';
+import { refreshProfile } from '@/lib/profile-sync';
 import { locationStore } from '@/lib/location-store';
 import { syncStore } from '@/lib/sync-store';
 import {
@@ -222,6 +223,11 @@ export default function HomeScreen() {
         setCurrentUser(synced);
       }
     } catch {}
+
+    // Samakan nama/jabatan/foto dengan server (mis. nama diubah admin di dashboard).
+    // Dijalankan setelah penyimpanan lain selesai karena sama-sama menulis salinan lokal.
+    const refreshed = await refreshProfile();
+    if (refreshed) setCurrentUser(refreshed);
 
     await triggerAutoSync();
   }, [triggerAutoSync]);
