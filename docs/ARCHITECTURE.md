@@ -42,8 +42,9 @@ Kata sandi di-hash bcrypt dan hanya diverifikasi server; tidak ada akun/kata san
 
 **Peran** = satu kolom `users.is_admin` (boolean). `true` = HR, boleh dashboard dan mobile; `false` =
 karyawan, hanya mobile (endpoint dashboard membalas 403 dan UI dashboard menolak login). Akun HR pertama
-dibuat seeder dari `SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD` saat tabel `users` masih kosong; tidak ada API
-untuk membuat admin. Kolom `role` hanyalah jabatan (teks bebas) dan tidak mempengaruhi hak akses.
+dibuat seeder dari `SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD` saat tabel `users` masih kosong. Admin
+tambahan hanya bisa diangkat (atau dicabut) oleh admin lewat `PUT /employees/:id` (`isAdmin`); `POST
+/employees` tidak pernah membuat admin, dan admin tidak bisa mencabut hak admin dirinya sendiri. Kolom `role` hanyalah jabatan (teks bebas) dan tidak mempengaruhi hak akses.
 Daftar hak akses per endpoint: `docs/API.md`.
 
 **Offline (mobile)**: login pertama wajib online. JWT disimpan di SecureStore dan dipulihkan saat aplikasi

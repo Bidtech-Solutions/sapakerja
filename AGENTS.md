@@ -56,7 +56,8 @@ npx expo install <pkg>                                   # SELALU untuk menambah
   cukup `RequireAuth`. Route baru didaftarkan di `internal/router/router.go` dan diuji di `router_test.go`.
 - Jangan menyimpan kata sandi (plaintext) di localStorage/SecureStore, dan jangan menjadikan teks `role`
   (jabatan) sebagai dasar otorisasi.
-- Akun awal dibuat seeder dari env (`SEED_*`), hanya saat tabel `users` kosong.
+- Akun awal dibuat seeder dari env (`SEED_*`), hanya saat tabel `users` kosong. Admin tambahan hanya lewat
+  `PUT /employees/:id` (`isAdmin`) oleh admin; jangan menambah jalur lain yang membuat admin.
 
 ## Backend (`loginrek-backend`)
 

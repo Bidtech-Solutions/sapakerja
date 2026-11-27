@@ -39,9 +39,10 @@ Dev: `http://localhost:3333/api/v1`, emulator Android: `http://10.0.2.2:3333/api
 | 🔒 | wajib login (karyawan **atau** HR/admin) |
 | 👑 | wajib login **dan** `isAdmin = true` (HR) — dashboard |
 
-`isAdmin` dikembalikan di objek `user` saat login dan `GET /auth/me`. Hanya diisi oleh seeder
-(`SEED_ADMIN_*`); tidak ada endpoint yang bisa membuat atau mengubah admin. Akun `isAdmin = false`
-hanya dapat memakai mobile; dashboard menolaknya.
+`isAdmin` dikembalikan di objek `user` saat login dan `GET /auth/me`. Admin pertama dibuat seeder
+(`SEED_ADMIN_*`); selanjutnya **hanya admin** yang bisa mengangkat atau mencabut hak admin karyawan
+lewat `PUT /employees/:id` dengan `isAdmin` (lihat di bawah). `POST /employees` tidak pernah membuat
+admin. Akun `isAdmin = false` hanya dapat memakai mobile; dashboard menolaknya.
 
 ## Endpoint
 
@@ -57,7 +58,7 @@ hanya dapat memakai mobile; dashboard menolaknya.
 | GET | `/attendances/my` | 🔒 | riwayat presensi milik akun aktif |
 | POST | `/attendances/check-in` | 🔒 | presensi masuk |
 | GET | `/attendances` | 👑 | rekap presensi semua karyawan |
-| GET | `/employees` | 👑 | daftar karyawan (tanpa akun admin) |
+| GET | `/employees` | 👑 | daftar karyawan, termasuk akun admin (`isAdmin: true`) |
 | POST | `/employees` | 👑 | tambah karyawan |
 | PUT | `/employees/:id` | 👑 | ubah karyawan |
 | DELETE | `/employees/:id` | 👑 | hapus karyawan + presensinya (cascade); akun admin ditolak |
@@ -158,6 +159,13 @@ tidak ikut dihapus dari penyimpanan; hanya referensinya di database.)
 login → **403**; token yang sudah ada ditolak **401** di semua endpoint karyawan (profil, absen),
 sehingga aplikasi mobile otomatis keluar ke layar login. Diaktifkan kembali dengan mengubah
 `employeeType` ke nilai lain. Akun admin tidak bisa dinonaktifkan (`PUT` → 400).
+
+**Hak admin.** `PUT /employees/:id` menerima `isAdmin` (boolean): `true` = angkat jadi admin, `false` =
+cabut; tidak dikirim = tidak berubah. Berlaku seketika (tidak perlu login ulang). Aturan (pelanggaran → 400,
+data tidak berubah sedikit pun): karyawan **Non-Aktif** tidak bisa diangkat; admin **tidak bisa mencabut hak
+admin akunnya sendiri** (sehingga selalu ada minimal satu admin); akun admin tetap tidak bisa dihapus
+(`DELETE` → 400) maupun dinonaktifkan. Pengangkatan/pencabutan dicatat di log server (`[Admin] ...`).
+Respons `employee` memuat `isAdmin`.
 
 <!-- DIUBAH (OTA): seluruh bagian "Update OTA" baru; sumbernya loginrek-backend/internal/updates/updates.go. -->
 ## Update OTA (expo-updates)

@@ -14,7 +14,9 @@ type User struct {
 	Role         *string      `gorm:"type:varchar(100)" json:"role"`
 	Department   *string      `gorm:"type:varchar(100)" json:"department"`
 	EmployeeType string       `gorm:"type:varchar(50);default:'Karyawan'" json:"employeeType"`
-	// IsAdmin = HR/admin: true boleh membuka dashboard; false hanya mobile. Tidak bisa diubah lewat API.
+	// IsAdmin = HR/admin: true boleh membuka dashboard; false hanya mobile. Akun admin pertama dari
+	// seeder; selanjutnya hanya admin yang bisa mengangkat/mencabut lewat PUT /employees/:id (isAdmin).
+	// POST /employees tidak pernah membuat admin.
 	IsAdmin      bool         `gorm:"default:false;index" json:"isAdmin"`
 	Phone        *string      `gorm:"type:varchar(50)" json:"phone"`
 	AvatarURL    *string      `gorm:"type:text" json:"avatarUrl"`
@@ -134,6 +136,7 @@ type EmployeeListItem struct {
 	OnTimeCount       string  `json:"onTimeCount"`
 	LateCount         string  `json:"lateCount"`
 	Status            string  `json:"status"`
+	IsAdmin           bool    `json:"isAdmin"`
 }
 
 func (u *User) ToEmployeeListItem() EmployeeListItem {
@@ -188,6 +191,7 @@ func (u *User) ToEmployeeListItem() EmployeeListItem {
 		OnTimeCount:       fmt.Sprintf("%dx", onTime),
 		LateCount:         fmt.Sprintf("%dx", late),
 		Status:            "Aktif",
+		IsAdmin:           u.IsAdmin,
 	}
 }
 

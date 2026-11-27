@@ -389,6 +389,104 @@ func TestInactiveEmployee_CannotLoginOrUseOldToken(t *testing.T) {
 	e.login(t, staffEmail, staffPassword)
 }
 
+// Admin bisa mengangkat/mencabut hak admin karyawan lewat PUT /employees/:id { isAdmin }.
+func TestAdminGrant_PromoteAndRevokeWithSafeguards(t *testing.T) {
+	e := newEnv(t)
+	adminTok := e.login(t, adminEmail, adminPassword)
+	staffTok := e.login(t, staffEmail, staffPassword)
+
+	var staff, admin domain.User
+	e.db.Where("email = ?", staffEmail).First(&staff)
+	e.db.Where("email = ?", adminEmail).First(&admin)
+	staffPath := "/api/v1/employees/" + itoa(staff.ID)
+	adminPath := "/api/v1/employees/" + itoa(admin.ID)
+
+	// Karyawan biasa tidak bisa mengangkat siapa pun (termasuk dirinya sendiri).
+	if code, _ := e.do(t, "PUT", staffPath, staffTok, map[string]any{"isAdmin": true}); code != 403 {
+		t.Fatalf("karyawan tidak boleh mengangkat admin, dapat %d", code)
+	}
+	if code, _ := e.do(t, "GET", "/api/v1/employees", staffTok, nil); code != 403 {
+		t.Fatalf("karyawan belum boleh membuka dashboard, dapat %d", code)
+	}
+
+	// Tanpa field isAdmin, status admin tidak berubah (menyimpan form biasa tidak memengaruhi).
+	if code, _ := e.do(t, "PUT", adminPath, adminTok, map[string]any{"fullName": "HR Utama"}); code != 200 {
+		t.Fatalf("ubah nama admin: %d", code)
+	}
+	e.db.Where("email = ?", adminEmail).First(&admin)
+	if !admin.IsAdmin {
+		t.Fatal("tanpa field isAdmin, admin tidak boleh berubah")
+	}
+
+	// Karyawan Non-Aktif tidak bisa diangkat, juga bila Non-Aktif dikirim bersamaan.
+	e.db.Model(&domain.User{}).Where("id = ?", staff.ID).Update("employee_type", domain.EmployeeTypeInactive)
+	if code, _ := e.do(t, "PUT", staffPath, adminTok, map[string]any{"isAdmin": true}); code != 400 {
+		t.Fatalf("mengangkat karyawan non-aktif harus 400, dapat %d", code)
+	}
+	e.db.Model(&domain.User{}).Where("id = ?", staff.ID).Update("employee_type", "Karyawan")
+	if code, _ := e.do(t, "PUT", staffPath, adminTok, map[string]any{"isAdmin": true, "employeeType": "Non-Aktif"}); code != 400 {
+		t.Fatalf("mengangkat + menonaktifkan sekaligus harus 400, dapat %d", code)
+	}
+	e.db.Where("email = ?", staffEmail).First(&staff)
+	if staff.IsAdmin || staff.EmployeeType != "Karyawan" {
+		t.Fatal("permintaan yang ditolak tidak boleh mengubah data sedikit pun")
+	}
+
+	// Mengangkat: berlaku seketika (token lama langsung bisa membuka endpoint dashboard).
+	code, out := e.do(t, "PUT", staffPath, adminTok, map[string]any{"isAdmin": true})
+	if code != 200 || out["employee"].(map[string]any)["isAdmin"] != true {
+		t.Fatalf("mengangkat admin: %d %v", code, out)
+	}
+	if code, _ := e.do(t, "GET", "/api/v1/employees", staffTok, nil); code != 200 {
+		t.Fatalf("admin baru harus langsung bisa membuka endpoint dashboard, dapat %d", code)
+	}
+
+	// Daftar karyawan kini menampilkan admin dengan isAdmin = true.
+	req := httptest.NewRequest("GET", "/api/v1/employees", nil)
+	req.Header.Set("Authorization", "Bearer "+adminTok)
+	w := httptest.NewRecorder()
+	e.engine.ServeHTTP(w, req)
+	var list []map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &list); err != nil {
+		t.Fatal(err)
+	}
+	admins := 0
+	for _, item := range list {
+		if item["isAdmin"] == true {
+			admins++
+		}
+	}
+	var adminsInDB int64
+	e.db.Model(&domain.User{}).Where("is_admin = ?", true).Count(&adminsInDB)
+	if admins < 2 || int64(admins) != adminsInDB {
+		t.Fatalf("daftar harus memuat semua admin di database (%d), termasuk yang baru diangkat; dapat %d", adminsInDB, admins)
+	}
+
+	// Pengaman: tidak bisa mencabut hak admin akun sendiri.
+	if code, _ := e.do(t, "PUT", staffPath, staffTok, map[string]any{"isAdmin": false}); code != 400 {
+		t.Fatalf("mencabut hak admin sendiri harus 400, dapat %d", code)
+	}
+	// Admin tetap tidak bisa dihapus atau dinonaktifkan.
+	if code, _ := e.do(t, "DELETE", staffPath, adminTok, nil); code != 400 {
+		t.Fatalf("menghapus admin harus 400, dapat %d", code)
+	}
+	if code, _ := e.do(t, "PUT", staffPath, adminTok, map[string]any{"employeeType": "Non-Aktif"}); code != 400 {
+		t.Fatalf("menonaktifkan admin harus 400, dapat %d", code)
+	}
+
+	// Admin lain boleh mencabut; efeknya seketika (token lama yang dicabut kehilangan akses).
+	if code, _ := e.do(t, "PUT", staffPath, adminTok, map[string]any{"isAdmin": false}); code != 200 {
+		t.Fatalf("mencabut hak admin: %d", code)
+	}
+	if code, _ := e.do(t, "GET", "/api/v1/employees", staffTok, nil); code != 403 {
+		t.Fatalf("hak admin yang dicabut harus langsung hilang, dapat %d", code)
+	}
+	e.db.Where("email = ?", adminEmail).First(&admin)
+	if !admin.IsAdmin {
+		t.Fatal("admin awal tidak boleh ikut terpengaruh")
+	}
+}
+
 func itoa(n uint) string {
 	b, _ := json.Marshal(n)
 	return string(b)

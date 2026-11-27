@@ -2,6 +2,7 @@ package handler
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -29,8 +30,8 @@ func NewEmployeeHandler(db *gorm.DB, cfg *config.Config, storage storage.Storage
 
 func (h *EmployeeHandler) Index(c *gin.Context) {
 	var users []domain.User
+	// Akun admin ikut tampil (dengan isAdmin = true) agar hak adminnya bisa dicabut dari dashboard.
 	err := h.db.
-		Where("is_admin = ?", false).
 		Preload("Attendances").
 		Order("id desc").
 		Find(&users).Error
@@ -167,6 +168,8 @@ type UpdateEmployeeRequest struct {
 	Phone        *string `json:"phone"`
 	AvatarURL    *string `json:"avatarUrl"`
 	Password     *string `json:"password"`
+	// IsAdmin: true = angkat jadi admin (hak akses dashboard), false = cabut. Tidak dikirim = tidak berubah.
+	IsAdmin *bool `json:"isAdmin"`
 }
 
 func (h *EmployeeHandler) Update(c *gin.Context) {
@@ -209,6 +212,31 @@ func (h *EmployeeHandler) Update(c *gin.Context) {
 			empType = domain.EmployeeTypeInactive // penulisan baku
 		}
 		user.EmployeeType = empType
+	}
+	// Hak admin. Endpoint ini sudah dilindungi RequireAdmin, jadi pelakunya selalu admin.
+	if req.IsAdmin != nil && *req.IsAdmin != user.IsAdmin {
+		actor, _ := c.Get("currentUser")
+		actorUser, _ := actor.(domain.User)
+
+		if *req.IsAdmin {
+			// Karyawan Non-Aktif tidak boleh diangkat (juga bila status Non-Aktif dikirim bersamaan).
+			if user.IsInactive() {
+				c.JSON(http.StatusBadRequest, gin.H{"message": "Karyawan non-aktif tidak dapat dijadikan admin. Aktifkan terlebih dahulu."})
+				return
+			}
+		} else if user.ID == actorUser.ID {
+			// Pelaku selalu admin; selama tidak boleh mencabut dirinya sendiri, minimal satu admin
+			// (pelaku itu) selalu tersisa, jadi dashboard tidak pernah terkunci.
+			c.JSON(http.StatusBadRequest, gin.H{"message": "Anda tidak dapat mencabut hak admin akun sendiri."})
+			return
+		}
+
+		user.IsAdmin = *req.IsAdmin
+		action := "mencabut"
+		if user.IsAdmin {
+			action = "memberikan"
+		}
+		log.Printf("[Admin] %s (id %d) %s hak admin %s (id %d)", actorUser.Email, actorUser.ID, action, user.Email, user.ID)
 	}
 	if req.Phone != nil {
 		user.Phone = req.Phone
