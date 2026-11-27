@@ -3332,6 +3332,10 @@
   gap: 10px;
 }
 
+.dash .status-segmented-grid.two-columns {
+  grid-template-columns: repeat(2, 1fr);
+}
+
 .dash .status-segment-btn {
   display: flex;
   flex-direction: column;

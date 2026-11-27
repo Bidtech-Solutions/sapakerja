@@ -23,7 +23,9 @@ function EditEmployeePage({ employee, onBack, onSave, onDelete }: EditEmployeePa
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [statusKepegawaian, setStatusKepegawaian] = useState(employee?.type || 'Karyawan');
-  
+  const initialIsAdmin = Boolean(employee?.isAdmin);
+  const [isAdmin, setIsAdmin] = useState(initialIsAdmin);
+
   const defaultAvatar = employee?.avatar || '';
   const [avatarPreview, setAvatarPreview] = useState(defaultAvatar);
   
@@ -65,6 +67,11 @@ function EditEmployeePage({ employee, onBack, onSave, onDelete }: EditEmployeePa
       return;
     }
 
+    if (isAdmin && !initialIsAdmin && statusKepegawaian === 'Non-Aktif') {
+      setErrorMsg('Karyawan non-aktif tidak dapat dijadikan admin. Pilih status kepegawaian lain terlebih dahulu.');
+      return;
+    }
+
     const initials = name.trim().split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase() || employee?.initials || 'EM';
 
     const updatedEmployee = {
@@ -74,6 +81,7 @@ function EditEmployeePage({ employee, onBack, onSave, onDelete }: EditEmployeePa
       phone: phone.trim(),
       role: role.trim(),
       type: statusKepegawaian,
+      isAdmin,
       avatar: avatarPreview,
       initials,
       ...(password.trim() ? { password: password.trim() } : {})
@@ -282,6 +290,42 @@ function EditEmployeePage({ employee, onBack, onSave, onDelete }: EditEmployeePa
                   </span>
                 )}
               </div>
+
+              {/* Field: Hak Akses Dashboard */}
+              <div className="edit-field-group">
+                <label className="edit-field-label">Hak Akses Dashboard</label>
+                <div className="status-segmented-grid two-columns">
+                  <div
+                    className={`status-segment-btn ${!isAdmin ? 'active' : ''}`}
+                    onClick={() => setIsAdmin(false)}
+                    role="button"
+                    tabIndex={0}
+                  >
+                    <span className="status-segment-title">Karyawan</span>
+                    <span className="status-segment-sub">Hanya aplikasi HP</span>
+                  </div>
+
+                  <div
+                    className={`status-segment-btn ${isAdmin ? 'active' : ''}`}
+                    onClick={() => setIsAdmin(true)}
+                    role="button"
+                    tabIndex={0}
+                  >
+                    <span className="status-segment-title">Admin</span>
+                    <span className="status-segment-sub">Dashboard + aplikasi HP</span>
+                  </div>
+                </div>
+                {isAdmin && !initialIsAdmin && (
+                  <span className="edit-field-hint">
+                    Admin dapat membuka dashboard, melihat seluruh data absensi, mengubah dan menghapus karyawan, serta mengangkat admin lain.
+                  </span>
+                )}
+                {!isAdmin && initialIsAdmin && (
+                  <span className="edit-field-hint">
+                    Hak admin akun ini akan dicabut. Anda tidak dapat mencabut hak admin akun sendiri.
+                  </span>
+                )}
+              </div>
             </form>
           </div>
 
@@ -387,6 +431,11 @@ export default function Page() {
               phone: updatedEmp.phone,
               avatarUrl: updatedEmp.avatar,
               password: updatedEmp.password,
+              // Hanya dikirim bila pilihannya diubah: data cache lama di browser tidak boleh
+              // tanpa sengaja mencabut atau memberikan hak admin.
+              ...(Boolean(updatedEmp.isAdmin) !== Boolean(employee.isAdmin)
+                ? { isAdmin: Boolean(updatedEmp.isAdmin) }
+                : {}),
             }),
           });
         } catch {

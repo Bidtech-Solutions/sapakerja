@@ -398,6 +398,11 @@ export default function Page() {
                       <span className={`type-badge ${getTypeBadgeClass(emp.type)}`}>
                         {emp.type}
                       </span>
+                      {emp.isAdmin && (
+                        <span className="type-badge badge-type-karyawan" style={{ marginLeft: 6 }}>
+                          Admin
+                        </span>
+                      )}
                     </td>
 
                     {/* Kehadiran (Bulan ini) */}
