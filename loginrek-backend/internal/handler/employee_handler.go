@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/mail"
 	"regexp"
 	"strconv"
 	"strings"
@@ -49,6 +50,16 @@ func (h *EmployeeHandler) Index(c *gin.Context) {
 	c.JSON(http.StatusOK, result)
 }
 
+// Email bebas (tidak harus @loginrek.com), tetapi harus berformat benar: tanpa "@" akun tidak akan
+// bisa login karena input tanpa "@" dilengkapi otomatis dengan @loginrek.com.
+func validEmail(email string) bool {
+	addr, err := mail.ParseAddress(email)
+	if err != nil || addr.Address != email {
+		return false
+	}
+	return strings.Contains(email[strings.LastIndex(email, "@"):], ".")
+}
+
 type CreateEmployeeRequest struct {
 	FullName     string  `json:"fullName" binding:"required"`
 	Role         string  `json:"role" binding:"required"`
@@ -75,6 +86,9 @@ func (h *EmployeeHandler) Store(c *gin.Context) {
 	email := strings.ToLower(strings.TrimSpace(req.Email))
 	if email == "" {
 		email = h.generateUniqueEmail(req.FullName)
+	} else if !validEmail(email) {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Format email tidak valid."})
+		return
 	}
 
 	var existing domain.User
@@ -168,6 +182,8 @@ type UpdateEmployeeRequest struct {
 	Phone        *string `json:"phone"`
 	AvatarURL    *string `json:"avatarUrl"`
 	Password     *string `json:"password"`
+	// Email: email login baru (domain bebas). Tidak dikirim/kosong = tidak berubah.
+	Email *string `json:"email"`
 	// IsAdmin: true = angkat jadi admin (hak akses dashboard), false = cabut. Tidak dikirim = tidak berubah.
 	IsAdmin *bool `json:"isAdmin"`
 }
@@ -197,6 +213,23 @@ func (h *EmployeeHandler) Update(c *gin.Context) {
 	}
 	if req.Role != nil && *req.Role != "" {
 		user.Role = req.Role
+	}
+	if req.Email != nil {
+		newEmail := strings.ToLower(strings.TrimSpace(*req.Email))
+		if newEmail != "" && newEmail != strings.ToLower(user.Email) {
+			if !validEmail(newEmail) {
+				c.JSON(http.StatusBadRequest, gin.H{"message": "Format email tidak valid."})
+				return
+			}
+			var taken int64
+			h.db.Model(&domain.User{}).Where("LOWER(email) = ? AND id <> ?", newEmail, user.ID).Count(&taken)
+			if taken > 0 {
+				c.JSON(http.StatusBadRequest, gin.H{"message": "Email sudah terdaftar."})
+				return
+			}
+			log.Printf("[Admin] email karyawan id %d diubah dari %s ke %s", user.ID, user.Email, newEmail)
+			user.Email = newEmail
+		}
 	}
 	if req.Department != nil {
 		user.Department = req.Department

@@ -148,7 +148,8 @@ Query: `page` (1), `limit` (20), `all=true` (limit 500), `date=YYYY-MM-DD`. Urut
 
 ### `POST /employees` / `PUT /employees/:id` 👑
 `POST` wajib: `fullName`, `role` (jabatan, teks bebas — **bukan** hak akses), `password` (min. 6).
-Opsional: `email` (dibuat otomatis bila kosong; 400 bila sudah terdaftar), `department`,
+Opsional: `email` (domain bebas, tidak harus `@loginrek.com`; dibuat otomatis `nama@loginrek.com` bila kosong;
+400 bila formatnya tidak valid atau sudah terdaftar; `PUT` juga menerima `email` untuk mengganti email login, email lama langsung tidak berlaku), `department`,
 `employeeType`, `phone`, `avatarUrl`. Akun baru selalu `isAdmin = false`. `PUT` menerima field
 yang sama, semuanya opsional. Respons: 201 / 200. Pada `PUT`, `avatarUrl: ""` (teks kosong)
 **menghapus** foto karyawan; bila field tidak dikirim, foto tidak berubah. (Berkas gambar lama

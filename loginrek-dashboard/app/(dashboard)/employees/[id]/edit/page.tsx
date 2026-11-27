@@ -426,6 +426,8 @@ export default function Page() {
             method: 'PUT',
             body: JSON.stringify({
               fullName: updatedEmp.name,
+              // Hanya dikirim bila diubah, supaya data cache lama tidak menimpa email di server.
+              ...(updatedEmp.email && updatedEmp.email !== employee.email ? { email: updatedEmp.email } : {}),
               role: updatedEmp.role,
               employeeType: updatedEmp.type,
               phone: updatedEmp.phone,

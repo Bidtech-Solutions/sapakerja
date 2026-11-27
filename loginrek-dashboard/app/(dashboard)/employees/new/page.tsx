@@ -29,8 +29,11 @@ function AddEmployeePage({ onBack, onSave }: { onBack: () => void; onSave: (empl
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Email otomatis yang ter-generate secara realtime dari nama depan
+  // Saran email dari nama depan (@loginrek.com). Admin boleh menggantinya dengan email lain;
+  // setelah mengetik sendiri, isinya tidak lagi mengikuti nama.
+  const [customEmail, setCustomEmail] = useState<string | null>(null);
   const autoEmail = generateLoginrekEmail(name);
+  const emailValue = customEmail ?? autoEmail;
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -67,10 +70,14 @@ function AddEmployeePage({ onBack, onSave }: { onBack: () => void; onSave: (empl
       return;
     }
 
+    const emailToSend = emailValue.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailToSend)) {
+      setErrorMsg('Format email belum benar. Contoh: nama@perusahaan.com');
+      return;
+    }
+
     setIsSubmitting(true);
     setErrorMsg('');
-
-    const emailToSend = autoEmail || `${name.trim().toLowerCase().replace(/[^a-z0-9]/g, '')}@loginrek.com`;
 
     try {
       const response = await apiFetch('/employees', {
@@ -199,27 +206,28 @@ function AddEmployeePage({ onBack, onSave }: { onBack: () => void; onSave: (empl
             <label htmlFor="input-auto-email" className="form-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span>Email Akun Login</span>
               <span style={{ fontSize: 11, color: '#0e7c86', background: '#e6f4f5', padding: '2px 8px', borderRadius: 4, fontWeight: 600 }}>
-                Otomatis: @loginrek.com
+                Bisa diubah
               </span>
             </label>
             <div className="input-icon-wrapper">
               <Mail size={17} className="input-leading-icon" style={{ color: '#0e7c86' }} />
-              <input 
+              <input
                 id="input-auto-email"
-                type="text" 
-                className="custom-form-input" 
-                style={{ background: '#f8fafc', color: autoEmail ? '#0e7c86' : '#94a3b8', fontWeight: 600 }}
-                placeholder="cth. aziz@loginrek.com (dibuat otomatis dari nama depan)"
-                value={autoEmail}
-                readOnly
+                type="email"
+                className="custom-form-input"
+                style={{ color: '#0e7c86', fontWeight: 600 }}
+                placeholder="cth. aziz@loginrek.com atau email lain"
+                value={emailValue}
+                autoCapitalize="none"
+                autoComplete="off"
+                onChange={(e) => {
+                  setCustomEmail(e.target.value);
+                  if (errorMsg) setErrorMsg('');
+                }}
               />
             </div>
             <span className="form-helper-text">
-              {autoEmail ? (
-                <span>Email resmi karyawan: <strong>{autoEmail}</strong> (dipakai login di aplikasi mobile).</span>
-              ) : (
-                <span>Ketik nama lengkap di atas, email akan otomatis terisi berdomain <strong>@loginrek.com</strong>.</span>
-              )}
+              <span>Terisi otomatis dari nama depan (<strong>@loginrek.com</strong>), tetapi boleh diganti dengan email lain. Email ini dipakai karyawan untuk login di aplikasi mobile.</span>
             </span>
           </div>
 

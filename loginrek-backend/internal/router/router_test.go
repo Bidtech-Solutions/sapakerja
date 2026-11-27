@@ -389,6 +389,75 @@ func TestInactiveEmployee_CannotLoginOrUseOldToken(t *testing.T) {
 	e.login(t, staffEmail, staffPassword)
 }
 
+// Admin boleh mendaftarkan karyawan dengan email di luar @loginrek.com, asalkan formatnya benar.
+func TestEmployeeCreate_CustomEmailDomain(t *testing.T) {
+	e := newEnv(t)
+	adminTok := e.login(t, adminEmail, adminPassword)
+
+	create := func(email string) (int, map[string]any) {
+		return e.do(t, "POST", "/api/v1/employees", adminTok, map[string]any{
+			"fullName": "Budi Santoso", "role": "Staff", "password": "password-baru-1", "email": email,
+		})
+	}
+
+	// Email domain lain diterima apa adanya (huruf kecil) dan bisa dipakai login.
+	if code, out := create("Budi.Santoso@Gmail.com"); code != http.StatusCreated && code != http.StatusOK {
+		t.Fatalf("email domain lain harus diterima, dapat %d %v", code, out)
+	}
+	var saved domain.User
+	if err := e.db.Where("email = ?", "budi.santoso@gmail.com").First(&saved).Error; err != nil {
+		t.Fatalf("email harus tersimpan huruf kecil: %v", err)
+	}
+	e.login(t, "budi.santoso@gmail.com", "password-baru-1")
+
+	// Email sama tidak boleh dobel; format salah ditolak.
+	if code, _ := create("budi.santoso@gmail.com"); code != http.StatusBadRequest {
+		t.Fatalf("email dobel harus 400, dapat %d", code)
+	}
+	for _, bad := range []string{"budi", "budi@", "@gmail.com", "budi@gmail", "Budi <budi@gmail.com>"} {
+		if code, _ := create(bad); code != http.StatusBadRequest {
+			t.Fatalf("email %q harus ditolak 400, dapat %d", bad, code)
+		}
+	}
+}
+
+// Admin bisa mengganti email karyawan yang sudah ada ke domain lain; email lama berhenti berlaku.
+func TestEmployeeUpdate_ChangeEmail(t *testing.T) {
+	e := newEnv(t)
+	adminTok := e.login(t, adminEmail, adminPassword)
+	staffTok := e.login(t, staffEmail, staffPassword)
+
+	var staff, admin domain.User
+	e.db.Where("email = ?", staffEmail).First(&staff)
+	e.db.Where("email = ?", adminEmail).First(&admin)
+	path := "/api/v1/employees/" + itoa(staff.ID)
+
+	// Format salah dan email milik akun lain ditolak.
+	if code, _ := e.do(t, "PUT", path, adminTok, map[string]any{"email": "bukan-email"}); code != http.StatusBadRequest {
+		t.Fatalf("format salah harus 400, dapat %d", code)
+	}
+	if code, _ := e.do(t, "PUT", path, adminTok, map[string]any{"email": adminEmail}); code != http.StatusBadRequest {
+		t.Fatalf("email milik akun lain harus 400, dapat %d", code)
+	}
+
+	// Email yang sama dengan miliknya sendiri / kosong = tidak berubah (bukan error).
+	if code, _ := e.do(t, "PUT", path, adminTok, map[string]any{"email": staffEmail}); code != http.StatusOK {
+		t.Fatalf("email sama harus 200, dapat %d", code)
+	}
+
+	// Ganti ke domain lain: login pakai email baru, email lama ditolak, token lama tetap berlaku.
+	if code, out := e.do(t, "PUT", path, adminTok, map[string]any{"email": "Baru@Gmail.com"}); code != http.StatusOK {
+		t.Fatalf("ganti email: %d %v", code, out)
+	}
+	e.login(t, "baru@gmail.com", staffPassword)
+	if code, _ := e.do(t, "POST", "/api/v1/auth/login", "", map[string]any{"email": staffEmail, "password": staffPassword}); code != http.StatusUnauthorized {
+		t.Fatalf("email lama harus 401, dapat %d", code)
+	}
+	if code, _ := e.do(t, "GET", "/api/v1/auth/me", staffTok, nil); code != http.StatusOK {
+		t.Fatalf("token lama harus tetap berlaku, dapat %d", code)
+	}
+}
+
 // Admin bisa mengangkat/mencabut hak admin karyawan lewat PUT /employees/:id { isAdmin }.
 func TestAdminGrant_PromoteAndRevokeWithSafeguards(t *testing.T) {
 	e := newEnv(t)
